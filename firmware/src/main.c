@@ -20,6 +20,7 @@
 #include "alert.h"
 #include "audio_capture.h"
 #include "config.h"
+#include "features.h"
 #include "rtos.h"
 
 static const char *TAG = "main";
@@ -73,6 +74,11 @@ void app_main(void)
     }
 
     alert_init();
+
+    if (features_init() != ESP_OK) {
+        ESP_LOGE(TAG, "falha ao inicializar o DSP, abortando");
+        return;
+    }
 
     if (audio_capture_init() != ESP_OK) {
         ESP_LOGE(TAG, "falha ao inicializar o I2S, abortando");
