@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Detector de Anomalias Acústicas</title>
+<style>
+  :root {
+    --bg: #0d0f14; --painel: #161a22; --linha: #242a36;
+    --txt: #e6e9ef; --fraco: #8b94a7; --ok: #3ddc97; --alerta: #ff5d5d;
+    --acento: #7aa2f7;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 16px; background: var(--bg); color: var(--txt);
+    font: 13px/1.5 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  h1 { font-size: 15px; margin: 0 0 2px; font-weight: 600; letter-spacing: .3px; }
+  .sub { color: var(--fraco); font-size: 11px; }
+  header { display: flex; gap: 16px; align-items: baseline; flex-wrap: wrap;
+           margin-bottom: 14px; }
+  .status { margin-left: auto; display: flex; gap: 14px; align-items: center;
+            flex-wrap: wrap; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px;
+          border: 1px solid var(--linha); border-radius: 999px; font-size: 11px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--fraco); }
+  .dot.on { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+  .dot.off { background: var(--alerta); }
+  .painel { background: var(--painel); border: 1px solid var(--linha);
+            border-radius: 8px; padding: 12px; margin-bottom: 14px; }
+  .cab { display: flex; align-items: center; gap: 12px; margin-bottom: 10px;
+         flex-wrap: wrap; }
+  .cab h2 { font-size: 12px; margin: 0; font-weight: 600;
+            text-transform: uppercase; letter-spacing: .8px; color: var(--fraco); }
+  .cab .dir { margin-left: auto; display: flex; gap: 12px; align-items: center; }
+  canvas { display: block; width: 100%; border-radius: 4px; background: #05070b; }
+  label { display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+          font-size: 11px; color: var(--fraco); user-select: none; }
+  input[type=checkbox] { accent-color: var(--acento); }
+  button { font: inherit; font-size: 11px; background: #1e2430; color: var(--txt);
+           border: 1px solid var(--linha); border-radius: 5px; padding: 5px 12px;
+           cursor: pointer; }
+  button:hover { border-color: var(--acento); }
+  button:disabled { opacity: .4; cursor: default; border-color: var(--linha); }
+  .solta { border: 1px dashed var(--linha); border-radius: 6px; padding: 18px;
+           text-align: center; color: var(--fraco); font-size: 12px;
+           cursor: pointer; }
+  .solta.sobre { border-color: var(--acento); color: var(--acento); }
+  .val { color: var(--txt); font-variant-numeric: tabular-nums; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 900px) { .grid2 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Detector de Anomalias Acústicas</h1>
+    <div class="sub" id="cfg">carregando parâmetros…</div>
+  </div>
+  <div class="status">
+    <span class="pill"><span class="dot" id="dot"></span><span id="conn">conectando</span></span>
+    <span class="pill">rms <span class="val" id="vrms">–</span></span>
+    <span class="pill">centroide <span class="val" id="vcent">–</span> Hz</span>
+    <span class="pill">score <span class="val" id="vscore">–</span></span>
+    <span class="pill"><span class="val" id="vfps">–</span> fps</span>
+  </div>
+</header>
+
+<div class="painel">
+  <div class="cab">
+    <h2>Espectrograma ao vivo</h2>
+    <div class="dir">
+      <label><input type="checkbox" id="picos"> overlay de picos</label>
+      <button id="btnRec">gravar 10 s → CSV</button>
+    </div>
+  </div>
+  <canvas id="cvEspec" height="300"></canvas>
+</div>
+
+<div class="painel">
+  <div class="cab"><h2>Score de anomalia</h2>
+    <div class="dir sub">linha vermelha = threshold</div>
+  </div>
+  <canvas id="cvScore" height="150"></canvas>
+</div>
+
+<div class="painel">
+  <div class="cab">
+    <h2>Arquivo de áudio</h2>
+    <div class="dir sub" id="infoArq">
+      mesmo pipeline, mesmos parâmetros — serve pra comparar com o microfone
+    </div>
+  </div>
+  <div class="solta" id="solta">arraste um WAV/MP3 aqui, ou clique pra escolher</div>
+  <input type="file" id="arq" accept="audio/*" hidden>
+  <canvas id="cvArq" height="260" style="margin-top:12px"></canvas>
+</div>
+
+<script>
+"use strict";
+
+// ---------------------------------------------------------------- colormap
+// Pontos de controle do magma do matplotlib, interpolados linearmente.
+const MAGMA = [
+  [0,0,4],[28,16,68],[79,18,123],[129,37,129],[181,54,122],
+  [229,80,100],[251,135,97],[254,194,135],[252,253,191]
+];
+function magma(u) {              // u em 0..255
+  const t = (u / 255) * (MAGMA.length - 1);
+  const i = Math.min(Math.floor(t), MAGMA.length - 2);
+  const f = t - i, a = MAGMA[i], b = MAGMA[i + 1];
+  return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f];
+}
+
+// ---------------------------------------------------------------- estado
+const MAX_COLS = 420;            // ~27 s de histórico a 15,6 fps
+let P = null, NB = 64, freqs = [];
+const cols = [];                 // Uint8Array(NB) por frame
+const scores = [];               // { t, score }
+let ultimo = null, quadros = 0, tFps = performance.now();
+
+const $ = id => document.getElementById(id);
+
+// ---------------------------------------------------------------- parâmetros
+fetch("/params").then(r => r.json()).then(p => {
+  P = p; NB = p.n_bands; freqs = p.band_freqs;
+  $("cfg").textContent =
+    `${p.sample_rate} Hz · frame ${p.frame_size} (${(1000*p.frame_size/p.sample_rate).toFixed(0)} ms)`
+    + ` · ${p.n_bands} bandas log ${p.fmin}–${p.fmax} Hz · ${p.n_mfcc} MFCCs`;
+  if (p.serial_erro) { $("conn").textContent = p.serial_erro; $("dot").className = "dot off"; }
+});
+
+// ---------------------------------------------------------------- websocket
+(function conecta() {
+  const ws = new WebSocket(`ws://${location.host}/ws`);
+  ws.onopen = () => { $("conn").textContent = "conectado"; $("dot").className = "dot on"; };
+  ws.onclose = () => {
+    $("conn").textContent = "reconectando…"; $("dot").className = "dot off";
+    setTimeout(conecta, 1500);
+  };
+  ws.onmessage = ev => {
+    const f = JSON.parse(ev.data);
+    ultimo = f; quadros++;
+    cols.push(Uint8Array.from(f.bands));
+    if (cols.length > MAX_COLS) cols.shift();
+    scores.push({ t: f.t_us / 1e6, score: f.score });
+    if (scores.length > MAX_COLS) scores.shift();
+  };
+})();
+
+// ---------------------------------------------------------------- helpers
+function ajusta(cv) {            // canvas em pixels reais, pra não borrar
+  const dpr = window.devicePixelRatio || 1;
+  const w = Math.max(cv.clientWidth, 1), h = cv.height;
+  if (cv.width !== Math.round(w * dpr)) {
+    cv.width = Math.round(w * dpr);
+    cv._h = Math.round(h * dpr);
+  }
+  return cv.getContext("2d");
+}
+
+// Máximos locais acima da média móvel da coluna. O Batch 10 calibra o peak
+// picking olhando exatamente isto por cima do espectrograma.
+function picosDaColuna(col) {
+  const media = col.reduce((a, b) => a + b, 0) / col.length;
+  const out = [];
+  for (let i = 1; i < col.length - 1; i++) {
+    if (col[i] > col[i - 1] && col[i] >= col[i + 1] && col[i] > media + 20) out.push(i);
+  }
+  return out;
+}
+
+function desenhaEspec(cv, colunas, mostrarPicos) {
+  const ctx = cv.getContext("2d");
+  const dpr = window.devicePixelRatio || 1;
+  const W = Math.max(Math.round(cv.clientWidth * dpr), 1);
+  const H = Math.round(cv.height * dpr);
+  if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+
+  ctx.fillStyle = "#05070b";
+  ctx.fillRect(0, 0, W, H);
+  if (!colunas.length) return;
+
+  const esqY = 46 * dpr;                       // faixa do eixo de frequência
+  const plotW = W - esqY, plotH = H;
+  const nb = colunas[0].length;
+
+  // Monta a imagem em resolução nativa (colunas × bandas) e deixa o canvas
+  // esticar. Redesenhar tudo a cada quadro é mais simples que rolar pixels,
+  // e 420×64 é barato.
+  const img = new ImageData(colunas.length, nb);
+  for (let x = 0; x < colunas.length; x++) {
+    const c = colunas[x];
+    for (let b = 0; b < nb; b++) {
+      const [r, g, bl] = magma(c[b]);
+      const y = nb - 1 - b;                    // grave embaixo
+      const o = (y * colunas.length + x) * 4;
+      img.data[o] = r; img.data[o+1] = g; img.data[o+2] = bl; img.data[o+3] = 255;
+    }
+  }
+  const off = document.createElement("canvas");
+  off.width = colunas.length; off.height = nb;
+  off.getContext("2d").putImageData(img, 0, 0);
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(off, esqY, 0, plotW, plotH);
+
+  // Eixo Y: as bandas já são log-espaçadas, então índice linear = escala log.
+  ctx.fillStyle = "#161a22";
+  ctx.fillRect(0, 0, esqY, H);
+  ctx.fillStyle = "#8b94a7";
+  ctx.font = `${10 * dpr}px ui-monospace, monospace`;
+  ctx.textAlign = "right";
+  for (const alvo of [100, 250, 500, 1000, 2000, 4000, 7000]) {
+    let melhor = 0;
+    for (let i = 1; i < freqs.length; i++)
+      if (Math.abs(freqs[i] - alvo) < Math.abs(freqs[melhor] - alvo)) melhor = i;
+    if (!freqs.length) break;
+    const y = plotH * (1 - melhor / (nb - 1));
+    const rot = alvo >= 1000 ? `${alvo / 1000}k` : `${alvo}`;
+    ctx.fillText(rot, esqY - 6 * dpr, y + 3.5 * dpr);
+    ctx.strokeStyle = "rgba(255,255,255,.07)";
+    ctx.beginPath(); ctx.moveTo(esqY, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+
+  if (mostrarPicos) {
+    const passo = plotW / colunas.length;
+    ctx.fillStyle = "#3ddc97";
+    for (let x = 0; x < colunas.length; x++) {
+      for (const b of picosDaColuna(colunas[x])) {
+        const y = plotH * (1 - b / (nb - 1));
+        ctx.beginPath();
+        ctx.arc(esqY + x * passo + passo / 2, y, 1.6 * dpr, 0, 6.2832);
+        ctx.fill();
+      }
+    }
+  }
+}
+
+function desenhaScore(cv) {
+  const ctx = cv.getContext("2d");
+  const dpr = window.devicePixelRatio || 1;
+  const W = Math.max(Math.round(cv.clientWidth * dpr), 1);
+  const H = Math.round(cv.height * dpr);
+  if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+
+  ctx.fillStyle = "#05070b"; ctx.fillRect(0, 0, W, H);
+  if (!scores.length || !P) return;
+
+  const lim = P.detector.limiar_fake;
+  const pad = 8 * dpr;
+  const topo = Math.max(lim * 1.6, ...scores.map(s => s.score)) || 1;
+  const y = v => H - pad - (H - 2 * pad) * (v / topo);
+
+  ctx.strokeStyle = "#ff5d5d"; ctx.setLineDash([5 * dpr, 5 * dpr]);
+  ctx.lineWidth = 1 * dpr;
+  ctx.beginPath(); ctx.moveTo(0, y(lim)); ctx.lineTo(W, y(lim)); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = "#ff5d5d"; ctx.textAlign = "left";
+  ctx.font = `${10 * dpr}px ui-monospace, monospace`;
+  ctx.fillText(`threshold ${lim}`, 6 * dpr, y(lim) - 5 * dpr);
+
+  ctx.strokeStyle = "#7aa2f7"; ctx.lineWidth = 1.4 * dpr;
+  ctx.beginPath();
+  scores.forEach((s, i) => {
+    const px = W * i / (MAX_COLS - 1);
+    i ? ctx.lineTo(px, y(s.score)) : ctx.moveTo(px, y(s.score));
+  });
+  ctx.stroke();
+
+  // Marca os pontos que cruzaram — é o que se aponta no relatório.
+  ctx.fillStyle = "#ff5d5d";
+  scores.forEach((s, i) => {
+    if (s.score > lim) {
+      ctx.beginPath();
+      ctx.arc(W * i / (MAX_COLS - 1), y(s.score), 2.2 * dpr, 0, 6.2832);
+      ctx.fill();
+    }
+  });
+}
+
+// ---------------------------------------------------------------- loop
+function quadro() {
+  desenhaEspec($("cvEspec"), cols, $("picos").checked);
+  desenhaScore($("cvScore"));
+
+  if (ultimo) {
+    $("vrms").textContent = ultimo.rms.toFixed(4);
+    $("vcent").textContent = ultimo.centroid.toFixed(0);
+    $("vscore").textContent = ultimo.score.toFixed(4);
+  }
+  const agora = performance.now();
+  if (agora - tFps > 1000) {
+    $("vfps").textContent = (quadros * 1000 / (agora - tFps)).toFixed(1);
+    quadros = 0; tFps = agora;
+  }
+  requestAnimationFrame(quadro);
+}
+requestAnimationFrame(quadro);
+
+// ---------------------------------------------------------------- gravar
+$("btnRec").onclick = async () => {
+  const b = $("btnRec");
+  b.disabled = true; b.textContent = "gravando…";
+  try {
+    const r = await fetch("/record?segundos=10", { method: "POST" });
+    if (!r.ok) throw new Error(await r.text());
+    const url = URL.createObjectURL(new Blob([await r.text()], { type: "text/csv" }));
+    const a = document.createElement("a");
+    a.href = url; a.download = `clip_${Date.now()}.csv`; a.click();
+    URL.revokeObjectURL(url);
+    b.textContent = "gravar 10 s → CSV";
+  } catch (e) {
+    b.textContent = "falhou: " + e.message;
+    setTimeout(() => { b.textContent = "gravar 10 s → CSV"; }, 2500);
+  }
+  b.disabled = false;
+};
+
+// ---------------------------------------------------------------- upload
+const solta = $("solta"), arq = $("arq");
+solta.onclick = () => arq.click();
+solta.ondragover = e => { e.preventDefault(); solta.classList.add("sobre"); };
+solta.ondragleave = () => solta.classList.remove("sobre");
+solta.ondrop = e => {
+  e.preventDefault(); solta.classList.remove("sobre");
+  if (e.dataTransfer.files[0]) envia(e.dataTransfer.files[0]);
+};
+arq.onchange = () => arq.files[0] && envia(arq.files[0]);
+
+async function envia(file) {
+  solta.textContent = `processando ${file.name}…`;
+  const fd = new FormData();
+  fd.append("file", file);
+  try {
+    const r = await fetch("/upload", { method: "POST", body: fd });
+    if (!r.ok) throw new Error(await r.text());
+    const d = await r.json();
+    const colunas = d.frames.map(f => Uint8Array.from(f));
+    desenhaEspec($("cvArq"), colunas, $("picos").checked);
+    $("infoArq").textContent =
+      `${file.name} · ${d.duration_s.toFixed(1)} s · ${d.frames.length} frames`;
+    solta.textContent = "arraste outro arquivo, ou clique pra escolher";
+    window._ultimoArq = colunas;          // pra redesenhar no resize
+  } catch (e) {
+    solta.textContent = "falhou: " + e.message;
+  }
+}
+
+$("picos").onchange = () => {
+  if (window._ultimoArq) desenhaEspec($("cvArq"), window._ultimoArq, $("picos").checked);
+};
+addEventListener("resize", () => {
+  if (window._ultimoArq) desenhaEspec($("cvArq"), window._ultimoArq, $("picos").checked);
+});
+</script>
+</body>
+</html>
