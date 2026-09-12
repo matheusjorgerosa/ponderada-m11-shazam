@@ -1,0 +1,36 @@
+{
+  "_comment": "FONTE DA VERDADE dos parametros. Python le direto; o firmware le via include/config.h, gerado por tools/gen_config.py. Nunca duplique um numero daqui em outro lugar.",
+
+  "sample_rate": 16000,
+  "frame_size": 1024,
+  "hop_size": 1024,
+  "n_mel": 20,
+  "n_mfcc": 13,
+  "fmin": 80,
+  "fmax": 7800,
+  "n_bands": 64,
+
+  "pins": {
+    "i2s_bck": 26,
+    "i2s_ws": 25,
+    "i2s_data": 33,
+    "led": 2,
+    "buzzer": 4
+  },
+
+  "i2s": {
+    "_comment": "L/R do INMP441 ligado a GND => canal esquerdo. dma_frame_num*4 bytes tem que caber em 4092 por descritor.",
+    "channel": "left",
+    "dma_buf_count": 4,
+    "dma_frame_num": 512
+  },
+
+  "serial": {
+    "baud": 921600
+  },
+
+  "detector": {
+    "limiar_fake": 0.05,
+    "stats_period_s": 5
+  }
+}
