@@ -1,11 +1,16 @@
 #include "audio_capture.h"
 #include "config.h"
+#include "rtos.h"
 
+#include <inttypes.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "driver/i2s_std.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 
 static const char *TAG = "audio";
 
@@ -88,4 +93,63 @@ esp_err_t audio_capture_read_frame(float *out)
         out[i] = (float)(raw[i] >> SHIFT_TO_24BIT) / SCALE_24BIT;
     }
     return ESP_OK;
+}
+
+/* ------------------------------------------------------------------ *
+ * Task 1 — captura. Prioridade mais alta do sistema.
+ *
+ * Regra inviolavel: nunca bloqueia por contencao. Todo take/send usa
+ * timeout 0. A unica espera permitida e a do I2S, que nao e contencao —
+ * e o relogio do sistema, um frame a cada FRAME_MS.
+ * ------------------------------------------------------------------ */
+void task_capture(void *arg)
+{
+    (void)arg;
+
+    /* Quando nao ha buffer livre ainda somos obrigados a drenar o I2S: parar
+     * de ler faria o DMA transbordar e corromper o alinhamento do stream.
+     * Entao lemos pro lixo e contabilizamos o descarte. */
+    static float descarte[FRAME_SIZE];
+
+    /* Alocacao round-robin. Funciona porque ha exatamente um produtor e um
+     * consumidor, e a q_audio e FIFO: os buffers sao devolvidos na mesma
+     * ordem ciclica em que foram tomados. O semaforo garante que o proximo
+     * indice ja esta livre. */
+    uint8_t  next = 0;
+    uint32_t seq  = 0;
+
+    while (1) {
+        bool tem_buffer = (xSemaphoreTake(sem_free_buffers, 0) == pdTRUE);
+        float *destino  = tem_buffer ? audio_pool[next] : descarte;
+
+        if (audio_capture_read_frame(destino) != ESP_OK) {
+            if (tem_buffer) {
+                xSemaphoreGive(sem_free_buffers);
+            }
+            continue;
+        }
+
+        if (!tem_buffer) {
+            stats_add(0, 1, 0);
+            printf("DROP captura seq=%" PRIu32 " (pool sem buffer livre)\n", seq++);
+            continue;
+        }
+
+        audio_msg_t m = {
+            .idx       = next,
+            .seq       = seq++,
+            .t_capture = esp_timer_get_time(),
+        };
+
+        /* O semaforo ja garantiu vaga; se falhar, algo quebrou a invariante. */
+        if (xQueueSend(q_audio, &m, 0) != pdTRUE) {
+            xSemaphoreGive(sem_free_buffers);
+            stats_add(0, 1, 0);
+            ESP_LOGE(TAG, "q_audio cheia com semaforo livre — invariante quebrada");
+            continue;
+        }
+
+        next = (next + 1) % AUDIO_POOL_SIZE;
+        stats_add(1, 0, 0);
+    }
 }
