@@ -1,5 +1,6 @@
 #include "detector.h"
 #include "alert.h"
+#include "stream.h"
 #include "config.h"
 #include "rtos.h"
 
@@ -81,6 +82,10 @@ void task_detect(void *arg)
             }
             printf("\n");
 #endif
+
+            /* Batch 6 troca isso pelo erro de reconstrucao do autoencoder.
+             * Ate la o grafico do dashboard mostra o RMS contra LIMIAR_FAKE. */
+            stream_emit(&ff, ff.f[0]);
 
             int64_t lat = ff.t_detect - ff.t_capture;
             lat_soma += lat;
