@@ -79,7 +79,7 @@ cd firmware
 
 ## Estado atual
 
-**Batch 3 — feature extraction real.** O pipeline de concorrência é o definitivo
+**Batch 4 — dashboard de visualização.** O pipeline de concorrência é o definitivo
 desde o Batch 2: os batches seguintes trocam o *algoritmo* dentro das tasks, não a
 estrutura.
 
@@ -129,6 +129,40 @@ A comparação é feita relativa ao RMS do vetor de features, não elemento a el
 Num tom puro, 18 dos 20 filtros mel ficam grudados no piso `log(1e-10)`, onde o
 log amplifica ruído de `float32` e MFCC nenhum é reprodutível — nenhum microfone
 entrega isso. Nos sinais com piso de ruído realista, C e Python concordam em ~1e-6.
+
+## Dashboard
+
+O ESP32 não tem WiFi por decisão de projeto. Ele emite um frame compacto pelo
+serial e um servidor Python no PC reempacota pro browser:
+
+```
+ESP32 --serial 921600--> server.py --WebSocket--> index.html (canvas)
+```
+
+```bash
+.venv/bin/python tools/dashboard/server.py     # autodetecta /dev/ttyUSB*
+# http://localhost:8000
+```
+
+Uma linha de texto por frame, `S,<t_us>,<rms>,<centroid>,<score>,<13 mfccs>,<64 bandas>`
+— cerca de 420 bytes, ~6,5 KB/s num canal de 92 KB/s. As 64 bandas são o espectro
+comprimido em escala log entre `fmin` e `fmax`, cada uma em dBFS mapeado para
+`uint8`. O espectro cru de 513 bins e o áudio bruto não cabem no serial.
+
+O dashboard tem quatro coisas:
+
+1. **Espectrograma ao vivo** — waterfall com colormap magma, eixo Y em log (as
+   bandas já são log-espaçadas, então índice linear já é escala log).
+2. **Score de anomalia** — linha do tempo com o threshold desenhado e os pontos
+   que cruzaram marcados.
+3. **Upload de arquivo** — o servidor roda o **mesmo** `dsp.py` sobre o WAV/MP3.
+   Toque o arquivo no alto-falante, capture pelo mic, compare os dois: é assim
+   que se confirma que o pipeline do C e o do Python concordam.
+4. **Overlay de picos** — máximos locais por cima do espectrograma. Não faz nada
+   na Fase 1; no Batch 10 é a ferramenta de calibrar o peak picking.
+
+O botão **gravar 10 s → CSV** baixa as últimas features com as mesmas colunas do
+modo dataset — serve pra clipe curto e dirigido. Coleta longa é o `collect.py`.
 
 ### Modo dataset
 
