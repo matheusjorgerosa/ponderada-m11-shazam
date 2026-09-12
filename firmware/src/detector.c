@@ -56,6 +56,16 @@ void task_detect(void *arg)
     feature_frame_t ff;
     int64_t ultimo_stats = esp_timer_get_time();
 
+#if MODE_DATASET
+    /* Cabecalho uma vez so; daqui pra frente o serial e CSV puro, sem log
+     * nenhum, pra que o collect.py do Batch 5 possa ler linha a linha. */
+    printf("rms,centroid");
+    for (int i = 0; i < N_MFCC; i++) {
+        printf(",mfcc%d", i);
+    }
+    printf("\n");
+#endif
+
     while (1) {
         if (xQueueReceive(q_features, &ff, pdMS_TO_TICKS(1000)) == pdTRUE) {
 #if FORCE_DELAY_DETECT_MS > 0
@@ -63,6 +73,14 @@ void task_detect(void *arg)
 #endif
             bool anomalia = detector_is_anomaly(ff.f);
             ff.t_detect   = esp_timer_get_time();
+
+#if MODE_DATASET
+            printf("%.6f,%.2f", ff.f[0], ff.f[1]);
+            for (int i = 0; i < N_MFCC; i++) {
+                printf(",%.4f", ff.f[2 + i]);
+            }
+            printf("\n");
+#endif
 
             int64_t lat = ff.t_detect - ff.t_capture;
             lat_soma += lat;
@@ -74,8 +92,10 @@ void task_detect(void *arg)
             if (anomalia) {
                 alert_trigger();
                 stats_add(0, 0, 1);
+#if !MODE_DATASET
                 printf("ANOMALIA seq=%" PRIu32 " rms=%.6f limiar=%.6f lat_us=%" PRId64 "\n",
                        ff.seq, ff.f[0], LIMIAR_FAKE, lat);
+#endif
             }
         }
 
@@ -83,7 +103,9 @@ void task_detect(void *arg)
 
         int64_t agora = esp_timer_get_time();
         if (agora - ultimo_stats >= (int64_t)STATS_PERIOD_S * 1000000) {
+#if !MODE_DATASET
             imprime_stats();
+#endif
             ultimo_stats = agora;
         }
     }
