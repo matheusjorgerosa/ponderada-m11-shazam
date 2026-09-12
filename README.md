@@ -79,12 +79,48 @@ cd firmware
 
 ## Estado atual
 
-**Batch 1 — scaffold + captura de áudio.** Uma única task lê frames de 1024
-amostras (64 ms @ 16 kHz) pelo I2S e imprime o RMS no serial:
+**Batch 2 — arquitetura RTOS completa**, com a detecção ainda sendo um threshold
+de RMS. O pipeline de concorrência já é o definitivo: os batches seguintes trocam
+o *algoritmo* dentro das tasks, não a estrutura.
 
 ```
-frame=142 rms=0.001832 dbfs=-54.7 leitura_us=64031
+task_capture  (prio 6, core 1)   I2S ──▶ pool de 4 buffers
+     │  q_audio      prof. 4, carrega o índice do buffer
+     │  sem_free_buffers (contador, 0..4)
+     ▼
+task_features (prio 4, core 1)   pool ──▶ feature_frame_t
+     │  q_features   prof. 8, carrega a struct por valor
+     ▼
+task_detect   (prio 3, core 0)   threshold ──▶ LED
 ```
 
-Critério de sucesso: RMS estável em silêncio e subindo ≥ 10× ao bater palma perto
-do microfone.
+`mtx_stats` protege `frames_captured`, `frames_dropped` e `anomalies_detected`.
+
+Saída esperada no serial:
+
+```
+STATS captured=4688 dropped=0 anomalies=12 q_audio=0/4 q_features=0/8 lat_media_us=1180 lat_max_us=3402 uptime_s=300
+ANOMALIA seq=1204 rms=0.183422 limiar=0.050000 lat_us=1402
+```
+
+### Critério de sucesso
+
+1. Rodar 5 minutos contínuos com `dropped=0`.
+2. Forçar um descarte e confirmar que o contador sobe **e a captura não para**.
+   Não edite código C — mexa no `params.json`:
+
+   ```jsonc
+   "force_delay_detect_ms": 200     // trava a detecção → enche a q_features
+   "force_delay_features_ms": 200   // trava a extração  → esgota o pool
+   ```
+
+   ```bash
+   python3 tools/gen_config.py && cd firmware && ../.venv-pio/bin/pio run -t upload
+   ```
+
+   Atrasar a **detecção** derruba frames na `q_features`; atrasar as **features**
+   derruba na captura, por falta de buffer livre. Os dois casos imprimem a etapa
+   que descartou (`DROP features` / `DROP captura`). Guarde essa saída — vira
+   seção do relatório.
+
+Volte os dois para `0` depois do teste.
