@@ -39,6 +39,11 @@
     "prio_detect": 3,   "core_detect": 0
   },
 
+  "modes": {
+    "_comment": "dataset=1 faz o serial cuspir so CSV das 15 features, uma linha por frame, sem log nenhum — e o que o collect.py do Batch 5 consome.",
+    "dataset": 0
+  },
+
   "detector": {
     "limiar_fake": 0.05,
     "stats_period_s": 5,

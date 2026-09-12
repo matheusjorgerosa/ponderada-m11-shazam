@@ -42,6 +42,9 @@
 #define PRIO_DETECT        3
 #define CORE_DETECT        0
 
+/* ---- Modos ---- */
+#define MODE_DATASET       0
+
 /* ---- Detector ---- */
 #define LIMIAR_FAKE        0.05f
 #define STATS_PERIOD_S     5
