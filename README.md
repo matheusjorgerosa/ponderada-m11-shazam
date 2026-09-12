@@ -79,9 +79,9 @@ cd firmware
 
 ## Estado atual
 
-**Batch 2 — arquitetura RTOS completa**, com a detecção ainda sendo um threshold
-de RMS. O pipeline de concorrência já é o definitivo: os batches seguintes trocam
-o *algoritmo* dentro das tasks, não a estrutura.
+**Batch 3 — feature extraction real.** O pipeline de concorrência é o definitivo
+desde o Batch 2: os batches seguintes trocam o *algoritmo* dentro das tasks, não a
+estrutura.
 
 ```
 task_capture  (prio 6, core 1)   I2S ──▶ pool de 4 buffers
@@ -95,6 +95,30 @@ task_detect   (prio 3, core 0)   threshold ──▶ LED
 ```
 
 `mtx_stats` protege `frames_captured`, `frames_dropped` e `anomalies_detected`.
+
+### As 15 features
+
+| Índice | Feature | Como |
+|---|---|---|
+| `f[0]` | RMS | direto do sinal no tempo |
+| `f[1]` | Spectral Centroid | média das frequências ponderada pela magnitude |
+| `f[2..14]` | 13 MFCCs | 20 filtros mel (80–7800 Hz) → log → DCT-II ortonormal |
+
+Janela de Hann **periódica**, FFT complexa de 1024 pontos via `esp-dsp`, energias
+mel sobre o espectro de **potência** com **log natural**, DCT-II na convenção
+`norm='ortho'`. Essas quatro convenções são as que o `tools/dashboard/dsp.py` do
+Batch 4 tem que copiar — divergir em qualquer uma faz o espectrograma do Python
+não bater com o do C.
+
+### Modo dataset
+
+`params.json → modes.dataset = 1` faz o serial cuspir CSV puro, uma linha por
+frame, sem nenhum log misturado — é o que o `collect.py` do Batch 5 consome.
+
+```
+rms,centroid,mfcc0,mfcc1,...,mfcc12
+0.001832,1043.27,-8.4213,1.2044,...
+```
 
 Saída esperada no serial:
 
