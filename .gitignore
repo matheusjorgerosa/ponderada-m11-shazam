@@ -4,3 +4,4 @@ firmware/sdkconfig.esp32dev
 model/data/*.csv
 __pycache__/
 *.pyc
+firmware/managed_components/
