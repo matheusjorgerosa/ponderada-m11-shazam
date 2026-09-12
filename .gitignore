@@ -5,3 +5,4 @@ model/data/*.csv
 __pycache__/
 *.pyc
 firmware/managed_components/
+.venv/
