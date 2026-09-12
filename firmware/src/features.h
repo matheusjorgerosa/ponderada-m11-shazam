@@ -14,7 +14,12 @@ float features_rms(const float *x, int n);
 void features_compute(const float *x, float *out);
 
 /* Magnitude spectrum do ultimo frame processado, N_FFT_BINS valores.
- * So a task_features escreve aqui; o Batch 4 le pra montar as bandas log. */
+ * So a task_features escreve aqui. */
 const float *features_spectrum(void);
+
+/* Comprime o magnitude spectrum em N_BANDS bandas log, cada uma em dB
+ * escalado pra 0..255. Roda dentro da task_features, dona do espectro —
+ * fazer isso no stream.c seria corrida com a proxima FFT. */
+void features_bands(uint8_t *out);
 
 #endif /* FEATURES_H */

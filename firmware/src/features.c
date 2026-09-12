@@ -24,6 +24,8 @@ static float fft_buf[2 * FRAME_SIZE];        /* re,im intercalados */
 static float mag[N_FFT_BINS];
 static float mel_edges[N_MEL + 2];           /* posicoes de bin das bordas */
 static float mel_energy[N_MEL];
+static int   band_edges[N_BANDS + 1];        /* bordas em indice de bin */
+static float band_escala;                    /* ganho coerente da janela */
 
 static float hz_to_mel(float hz) { return 2595.0f * log10f(1.0f + hz / 700.0f); }
 static float mel_to_hz(float m)  { return 700.0f * (powf(10.0f, m / 2595.0f) - 1.0f); }
@@ -52,6 +54,26 @@ esp_err_t features_init(void)
         mel_edges[i] = hz * (float)FRAME_SIZE / (float)SAMPLE_RATE;
     }
 
+    /* Ganho coerente da Hann: uma senoide de amplitude A vira um pico de
+     * A/2 * sum(hann) na FFT. Dividir por isso faz o dB virar dBFS — sem
+     * essa normalizacao qualquer som alto satura em 255 e o colormap do
+     * espectrograma vira chapado. */
+    float soma = 0.0f;
+    for (int i = 0; i < FRAME_SIZE; i++) {
+        soma += hann[i];
+    }
+    band_escala = 2.0f / soma;
+
+    /* Bordas das bandas do dashboard: log-espacadas entre FMIN e FMAX, nos
+     * mesmos limites da mel, pra que o dsp.py reuse os parametros. */
+    float lg_min = log10f(FMIN);
+    float lg_max = log10f(FMAX);
+    for (int b = 0; b <= N_BANDS; b++) {
+        float hz  = powf(10.0f, lg_min + (lg_max - lg_min) * (float)b / (float)N_BANDS);
+        int   bin = (int)(hz * (float)FRAME_SIZE / (float)SAMPLE_RATE);
+        band_edges[b] = (bin > N_FFT_BINS - 1) ? (N_FFT_BINS - 1) : bin;
+    }
+
     ESP_LOGI(TAG, "FFT %d pontos, %d filtros mel (%.0f–%.0f Hz), %d MFCCs",
              FRAME_SIZE, N_MEL, FMIN, FMAX, N_MFCC);
     return ESP_OK;
@@ -67,6 +89,34 @@ float features_rms(const float *x, int n)
 }
 
 const float *features_spectrum(void) { return mag; }
+
+/* MAXIMO da banda, nao media: nas bandas graves o espaco log e mais estreito
+ * que um bin, e a media achataria tom puro contra o piso vizinho. O que se
+ * quer ver no espectrograma e justamente a raia fina. */
+void features_bands(uint8_t *out)
+{
+    for (int b = 0; b < N_BANDS; b++) {
+        int k0 = band_edges[b];
+        int k1 = band_edges[b + 1];
+        if (k1 <= k0) {
+            k1 = k0 + 1;
+        }
+        if (k1 > N_FFT_BINS) {
+            k1 = N_FFT_BINS;
+        }
+
+        float pico = 0.0f;
+        for (int k = k0; k < k1; k++) {
+            if (mag[k] > pico) {
+                pico = mag[k];
+            }
+        }
+
+        float db = 20.0f * log10f(pico * band_escala + 1e-9f);
+        float u  = (db - DB_MIN) / (DB_MAX - DB_MIN) * 255.0f;
+        out[b] = (u < 0.0f) ? 0 : (u > 255.0f ? 255 : (uint8_t)u);
+    }
+}
 
 /* Centroide espectral: media das frequencias ponderada pela magnitude.
  * Em silencio o denominador vai a zero, entao devolvemos 0 em vez de NaN —
@@ -182,6 +232,7 @@ void task_features(void *arg)
         ff.t_capture = m.t_capture;
         ff.t_detect  = 0;
         features_compute(audio_pool[m.idx], ff.f);
+        features_bands(ff.bands);
         ff.t_features = esp_timer_get_time();
 
         /* Devolve o buffer ANTES de enfileirar. Quanto antes ele volta pro
