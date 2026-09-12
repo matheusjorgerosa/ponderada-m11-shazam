@@ -31,8 +31,24 @@
 /* ---- Serial ---- */
 #define SERIAL_BAUD        921600
 
+/* ---- RTOS ---- */
+#define AUDIO_POOL_SIZE    4
+#define Q_AUDIO_DEPTH      4
+#define Q_FEATURES_DEPTH   8
+#define PRIO_CAPTURE       6
+#define CORE_CAPTURE       1
+#define PRIO_FEATURES      4
+#define CORE_FEATURES      1
+#define PRIO_DETECT        3
+#define CORE_DETECT        0
+
 /* ---- Detector ---- */
 #define LIMIAR_FAKE        0.05f
 #define STATS_PERIOD_S     5
+#define ALERT_MS           500
+
+/* Atrasos artificiais do teste de estresse. 0 = desligado. */
+#define FORCE_DELAY_FEATURES_MS  0
+#define FORCE_DELAY_DETECT_MS    0
 
 #endif /* CONFIG_H */

@@ -29,8 +29,22 @@
     "baud": 921600
   },
 
+  "rtos": {
+    "_comment": "Captura tem a maior prioridade porque e a unica etapa com prazo fisico: o DMA do I2S nao espera. Features e detect podem atrasar e so aumentam a latencia.",
+    "pool_size": 4,
+    "q_audio_depth": 4,
+    "q_features_depth": 8,
+    "prio_capture": 6,  "core_capture": 1,
+    "prio_features": 4, "core_features": 1,
+    "prio_detect": 3,   "core_detect": 0
+  },
+
   "detector": {
     "limiar_fake": 0.05,
-    "stats_period_s": 5
+    "stats_period_s": 5,
+    "alert_ms": 500,
+    "_comment_drop": "Atrasos artificiais para o teste de estresse. 0 = desligado.",
+    "force_delay_features_ms": 0,
+    "force_delay_detect_ms": 0
   }
 }

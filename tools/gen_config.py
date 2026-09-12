@@ -10,7 +10,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 P = json.loads((ROOT / "params.json").read_text())
 
-pins, i2s, ser, det = P["pins"], P["i2s"], P["serial"], P["detector"]
+pins, i2s, ser, det, rtos = P["pins"], P["i2s"], P["serial"], P["detector"], P["rtos"]
 n_fft_bins = P["frame_size"] // 2 + 1
 frame_ms = 1000.0 * P["frame_size"] / P["sample_rate"]
 
@@ -47,9 +47,25 @@ config_h = f"""/* GERADO POR tools/gen_config.py A PARTIR DE params.json — NAO
 /* ---- Serial ---- */
 #define SERIAL_BAUD        {ser["baud"]}
 
+/* ---- RTOS ---- */
+#define AUDIO_POOL_SIZE    {rtos["pool_size"]}
+#define Q_AUDIO_DEPTH      {rtos["q_audio_depth"]}
+#define Q_FEATURES_DEPTH   {rtos["q_features_depth"]}
+#define PRIO_CAPTURE       {rtos["prio_capture"]}
+#define CORE_CAPTURE       {rtos["core_capture"]}
+#define PRIO_FEATURES      {rtos["prio_features"]}
+#define CORE_FEATURES      {rtos["core_features"]}
+#define PRIO_DETECT        {rtos["prio_detect"]}
+#define CORE_DETECT        {rtos["core_detect"]}
+
 /* ---- Detector ---- */
 #define LIMIAR_FAKE        {float(det["limiar_fake"])}f
 #define STATS_PERIOD_S     {det["stats_period_s"]}
+#define ALERT_MS           {det["alert_ms"]}
+
+/* Atrasos artificiais do teste de estresse. 0 = desligado. */
+#define FORCE_DELAY_FEATURES_MS  {det["force_delay_features_ms"]}
+#define FORCE_DELAY_DETECT_MS    {det["force_delay_detect_ms"]}
 
 #endif /* CONFIG_H */
 """
