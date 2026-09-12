@@ -2,6 +2,8 @@
 #include "config.h"
 
 #include <string.h>
+
+#include "freertos/FreeRTOS.h"
 #include "driver/i2s_std.h"
 #include "esp_log.h"
 

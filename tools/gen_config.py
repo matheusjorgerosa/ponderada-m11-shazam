@@ -58,6 +58,7 @@ sdkconfig = f"""# GERADO POR tools/gen_config.py — NAO EDITE A MAO.
 CONFIG_ESP_CONSOLE_UART_BAUDRATE={ser["baud"]}
 CONFIG_FREERTOS_HZ=1000
 CONFIG_ESP_MAIN_TASK_STACK_SIZE=4096
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
 """
 
 (ROOT / "firmware" / "include" / "config.h").write_text(config_h)
