@@ -110,6 +110,26 @@ mel sobre o espectro de **potência** com **log natural**, DCT-II na convenção
 Batch 4 tem que copiar — divergir em qualquer uma faz o espectrograma do Python
 não bater com o do C.
 
+### Validação do DSP sem hardware
+
+`tests/host/` compila o `firmware/src/features.c` **no PC**, sem alterar uma linha
+dele: os stubs em `tests/host/stubs/` cobrem o que é do ESP32, com uma DFT ingênua
+no lugar da FFT do `esp-dsp`. O resultado é comparado contra `librosa` + `scipy`.
+
+```bash
+python3 -m venv .venv && .venv/bin/pip install -r model/requirements.txt
+.venv/bin/python tests/host/validate_dsp.py
+```
+
+Valida o código **nosso** — magnitude, centroide, filterbank mel, log e DCT.
+**Não** valida a chamada ao `esp-dsp` em si (se `dsps_fft2r_fc32` + `dsps_bit_rev_fc32`
+realmente deixam o resultado em ordem natural); isso só o hardware diz.
+
+A comparação é feita relativa ao RMS do vetor de features, não elemento a elemento.
+Num tom puro, 18 dos 20 filtros mel ficam grudados no piso `log(1e-10)`, onde o
+log amplifica ruído de `float32` e MFCC nenhum é reprodutível — nenhum microfone
+entrega isso. Nos sinais com piso de ruído realista, C e Python concordam em ~1e-6.
+
 ### Modo dataset
 
 `params.json → modes.dataset = 1` faz o serial cuspir CSV puro, uma linha por
