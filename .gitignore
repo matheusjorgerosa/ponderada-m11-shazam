@@ -1,0 +1,6 @@
+.venv-pio/
+firmware/.pio/
+firmware/sdkconfig.esp32dev
+model/data/*.csv
+__pycache__/
+*.pyc
