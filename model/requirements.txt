@@ -1,3 +1,7 @@
 numpy
 scipy
 librosa
+fastapi
+uvicorn[standard]
+pyserial
+python-multipart
