@@ -41,7 +41,14 @@
 
   "modes": {
     "_comment": "dataset=1 faz o serial cuspir so CSV das 15 features, uma linha por frame, sem log nenhum — e o que o collect.py do Batch 5 consome.",
-    "dataset": 0
+    "dataset": 0,
+    "stream": 1
+  },
+
+  "stream": {
+    "_comment": "Faixa de dB mapeada em 0..255 nas 64 bandas log. -100 dBFS e o piso tipico do INMP441 em sala silenciosa.",
+    "db_min": -100,
+    "db_max": 0
   },
 
   "detector": {

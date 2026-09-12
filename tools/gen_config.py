@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parent.parent
 P = json.loads((ROOT / "params.json").read_text())
 
 pins, i2s, ser, det, rtos = P["pins"], P["i2s"], P["serial"], P["detector"], P["rtos"]
-modes = P["modes"]
+modes, stream = P["modes"], P["stream"]
 n_fft_bins = P["frame_size"] // 2 + 1
 frame_ms = 1000.0 * P["frame_size"] / P["sample_rate"]
 
@@ -61,6 +61,11 @@ config_h = f"""/* GERADO POR tools/gen_config.py A PARTIR DE params.json — NAO
 
 /* ---- Modos ---- */
 #define MODE_DATASET       {modes["dataset"]}
+#define MODE_STREAM        {modes["stream"]}
+
+/* ---- Stream do dashboard ---- */
+#define DB_MIN             {float(stream["db_min"])}f
+#define DB_MAX             {float(stream["db_max"])}f
 
 /* ---- Detector ---- */
 #define LIMIAR_FAKE        {float(det["limiar_fake"])}f

@@ -44,6 +44,11 @@
 
 /* ---- Modos ---- */
 #define MODE_DATASET       0
+#define MODE_STREAM        1
+
+/* ---- Stream do dashboard ---- */
+#define DB_MIN             -100.0f
+#define DB_MAX             0.0f
 
 /* ---- Detector ---- */
 #define LIMIAR_FAKE        0.05f
