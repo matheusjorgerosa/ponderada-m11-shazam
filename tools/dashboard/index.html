@@ -144,7 +144,7 @@ fetch("/params").then(r => r.json()).then(p => {
     ultimo = f; quadros++;
     cols.push(Uint8Array.from(f.bands));
     if (cols.length > MAX_COLS) cols.shift();
-    scores.push({ t: f.t_us / 1e6, score: f.score });
+    scores.push({ t: f.t_us / 1e6, score: f.score, threshold: f.threshold });
     if (scores.length > MAX_COLS) scores.shift();
   };
 })();
@@ -247,7 +247,10 @@ function desenhaScore(cv) {
   ctx.fillStyle = "#05070b"; ctx.fillRect(0, 0, W, H);
   if (!scores.length || !P) return;
 
-  const lim = P.detector.limiar_fake;
+  // O threshold vem do device em cada frame, nao do params.json: a linha
+  // desenhada tem que ser a que o firmware esta usando de fato.
+  const lim = scores[scores.length - 1].threshold;
+  if (!isFinite(lim)) return;
   const pad = 8 * dpr;
   const topo = Math.max(lim * 1.6, ...scores.map(s => s.score)) || 1;
   const y = v => H - pad - (H - 2 * pad) * (v / topo);
@@ -258,7 +261,7 @@ function desenhaScore(cv) {
   ctx.setLineDash([]);
   ctx.fillStyle = "#ff5d5d"; ctx.textAlign = "left";
   ctx.font = `${10 * dpr}px ui-monospace, monospace`;
-  ctx.fillText(`threshold ${lim}`, 6 * dpr, y(lim) - 5 * dpr);
+  ctx.fillText(`threshold ${lim.toFixed(4)}`, 6 * dpr, y(lim) - 5 * dpr);
 
   ctx.strokeStyle = "#7aa2f7"; ctx.lineWidth = 1.4 * dpr;
   ctx.beginPath();

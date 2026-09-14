@@ -53,9 +53,9 @@ def acha_porta() -> str | None:
 
 
 def parse(linha: str) -> dict | None:
-    """S,<t_us>,<rms>,<centroid>,<score>,<13 mfccs>,<64 bandas>"""
+    """S,<t_us>,<rms>,<centroid>,<score>,<threshold>,<13 mfccs>,<64 bandas>"""
     p = linha.split(",")
-    esperado = 5 + N_MFCC + N_BANDS
+    esperado = 6 + N_MFCC + N_BANDS
     if len(p) != esperado or p[0] != "S":
         return None
     try:
@@ -64,8 +64,9 @@ def parse(linha: str) -> dict | None:
             "rms": float(p[2]),
             "centroid": float(p[3]),
             "score": float(p[4]),
-            "mfcc": [float(v) for v in p[5:5 + N_MFCC]],
-            "bands": [int(v) for v in p[5 + N_MFCC:]],
+            "threshold": float(p[5]),
+            "mfcc": [float(v) for v in p[6:6 + N_MFCC]],
+            "bands": [int(v) for v in p[6 + N_MFCC:]],
         }
     except ValueError:
         return None
