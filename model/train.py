@@ -193,6 +193,9 @@ def main() -> int:
         input_names=["features"], output_names=["reconstruction", "score"],
         dynamic_axes={"features": {0: "batch"}, "reconstruction": {0: "batch"},
                       "score": {0: "batch"}},
+        # Pesos embutidos: o exportador novo grava um sidecar .onnx.data por
+        # padrao, e um entregavel em dois arquivos se perde na entrega.
+        external_data=False,
     )
     header = ROOT / "firmware/include/model_weights.h"
     gera_header(modelo, limiar, header, args.normal, len(normal))
