@@ -1,8 +1,9 @@
 #include "detector.h"
 #include "alert.h"
-#include "stream.h"
 #include "config.h"
+#include "model_weights.h"
 #include "rtos.h"
+#include "stream.h"
 
 #include <inttypes.h>
 #include <stdio.h>
@@ -11,9 +12,66 @@
 #include "freertos/task.h"
 #include "esp_timer.h"
 
-bool detector_is_anomaly(const float *features)
+/* Uma camada densa: out[o] = sum_i w[o*n_in + i] * x[i] + b[o].
+ * Quatro chamadas destas sao o modelo inteiro — sem TFLite, sem runtime
+ * externo, sem quantizacao. Os pesos vem do model_weights.h, gerado pelo
+ * train.py, e vivem em .rodata (flash), nao em RAM. */
+static void densa(const float *x, int n_in,
+                  const float *w, const float *b,
+                  float *out, int n_out, int relu)
 {
-    return features[0] > LIMIAR_FAKE;   /* features[0] == RMS */
+    for (int o = 0; o < n_out; o++) {
+        const float *linha = w + o * n_in;
+        float acc = b[o];
+        for (int i = 0; i < n_in; i++) {
+            acc += linha[i] * x[i];
+        }
+        out[o] = (relu && acc < 0.0f) ? 0.0f : acc;
+    }
+}
+
+float detector_threshold(void) { return model_threshold; }
+
+float detector_score(const float *features)
+{
+    float z[MODEL_N_IN];
+    float h1[MODEL_H1], h2[MODEL_LATENT], h3[MODEL_H1];
+    float recon[MODEL_N_IN];
+
+    for (int i = 0; i < MODEL_N_IN; i++) {
+        z[i] = (features[i] - model_mean[i]) / model_std[i];
+    }
+
+    densa(z,  MODEL_N_IN,   w_enc1, b_enc1, h1,    MODEL_H1,     1);
+    densa(h1, MODEL_H1,     w_enc2, b_enc2, h2,    MODEL_LATENT, 1);
+    densa(h2, MODEL_LATENT, w_dec1, b_dec1, h3,    MODEL_H1,     1);
+    densa(h3, MODEL_H1,     w_dec2, b_dec2, recon, MODEL_N_IN,   0);  /* linear */
+
+    float acc = 0.0f;
+    for (int i = 0; i < MODEL_N_IN; i++) {
+        float d = recon[i] - z[i];
+        acc += d * d;
+    }
+    return acc / (float)MODEL_N_IN;
+}
+
+/* Debounce: um frame isolado acima do threshold quase sempre e ruido. Exigir
+ * DEBOUNCE_N consecutivos custa DEBOUNCE_N*64 ms de latencia e corta quase
+ * todo falso positivo. */
+bool detector_is_anomaly(float score)
+{
+    static int seguidos = 0;
+
+    if (score <= model_threshold) {
+        seguidos = 0;
+        return false;
+    }
+
+    seguidos++;
+    if (seguidos == DEBOUNCE_N) {
+        return true;        /* dispara uma vez; so rearma apos voltar ao normal */
+    }
+    return false;
 }
 
 /* Latencia ponta a ponta acumulada. So esta task toca nessas variaveis,
@@ -72,7 +130,8 @@ void task_detect(void *arg)
 #if FORCE_DELAY_DETECT_MS > 0
             vTaskDelay(pdMS_TO_TICKS(FORCE_DELAY_DETECT_MS));
 #endif
-            bool anomalia = detector_is_anomaly(ff.f);
+            float score   = detector_score(ff.f);
+            bool anomalia = detector_is_anomaly(score);
             ff.t_detect   = esp_timer_get_time();
 
 #if MODE_DATASET
@@ -82,10 +141,7 @@ void task_detect(void *arg)
             }
             printf("\n");
 #endif
-
-            /* Batch 6 troca isso pelo erro de reconstrucao do autoencoder.
-             * Ate la o grafico do dashboard mostra o RMS contra LIMIAR_FAKE. */
-            stream_emit(&ff, ff.f[0]);
+            stream_emit(&ff, score);
 
             int64_t lat = ff.t_detect - ff.t_capture;
             lat_soma += lat;
@@ -97,11 +153,11 @@ void task_detect(void *arg)
             if (anomalia) {
                 alert_trigger();
                 stats_add(0, 0, 1);
-#if !MODE_DATASET
-                printf("ANOMALIA seq=%" PRIu32 " rms=%.6f limiar=%.6f lat_us=%" PRId64 "\n",
-                       ff.seq, ff.f[0], LIMIAR_FAKE, lat);
-#endif
             }
+#if !MODE_DATASET
+            printf("D,%" PRIu32 ",%.6f,%.6f,%d,%" PRId64 "\n",
+                   ff.seq, score, model_threshold, anomalia ? 1 : 0, lat);
+#endif
         }
 
         alert_update();
