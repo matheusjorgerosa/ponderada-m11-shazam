@@ -1,5 +1,6 @@
 #include "stream.h"
 #include "config.h"
+#include "detector.h"
 
 #include <inttypes.h>
 #include <stdio.h>
@@ -12,8 +13,9 @@ static char linha[512];
 void stream_emit(const feature_frame_t *ff, float score)
 {
 #if MODE_STREAM
-    int n = snprintf(linha, sizeof(linha), "S,%" PRId64 ",%.6f,%.1f,%.6f",
-                     ff->t_capture, ff->f[0], ff->f[1], score);
+    int n = snprintf(linha, sizeof(linha), "S,%" PRId64 ",%.6f,%.1f,%.6f,%.6f",
+                     ff->t_capture, ff->f[0], ff->f[1], score,
+                     detector_threshold());
 
     for (int i = 0; i < N_MFCC && n > 0 && n < (int)sizeof(linha) - 16; i++) {
         n += snprintf(linha + n, sizeof(linha) - n, ",%.3f", ff->f[2 + i]);
