@@ -51,6 +51,18 @@
     "db_max": 0
   },
 
+  "model": {
+    "_comment": "Autoencoder 15->8->4->8->15. Treina so com som normal; o score e o erro de reconstrucao. O threshold sai do percentil sobre um conjunto normal SEPARADO do treino — calcular no proprio treino daria um numero otimista.",
+    "hidden1": 8,
+    "latent": 4,
+    "epochs": 120,
+    "batch_size": 64,
+    "learning_rate": 0.001,
+    "val_split": 0.2,
+    "threshold_percentile": 99,
+    "seed": 42
+  },
+
   "detector": {
     "limiar_fake": 0.05,
     "stats_period_s": 5,
