@@ -5,3 +5,7 @@ fastapi
 uvicorn[standard]
 pyserial
 python-multipart
+torch
+onnx
+onnxruntime
+onnxscript
