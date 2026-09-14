@@ -68,9 +68,11 @@ config_h = f"""/* GERADO POR tools/gen_config.py A PARTIR DE params.json — NAO
 #define DB_MAX             {float(stream["db_max"])}f
 
 /* ---- Detector ---- */
-#define LIMIAR_FAKE        {float(det["limiar_fake"])}f
+#define DEBOUNCE_N         {det["debounce_n"]}
 #define STATS_PERIOD_S     {det["stats_period_s"]}
 #define ALERT_MS           {det["alert_ms"]}
+#define BUZZER_ENABLED     {det["buzzer_enabled"]}
+#define BUZZER_HZ          {det["buzzer_hz"]}
 
 /* Atrasos artificiais do teste de estresse. 0 = desligado. */
 #define FORCE_DELAY_FEATURES_MS  {det["force_delay_features_ms"]}

@@ -51,9 +51,11 @@
 #define DB_MAX             0.0f
 
 /* ---- Detector ---- */
-#define LIMIAR_FAKE        0.05f
+#define DEBOUNCE_N         2
 #define STATS_PERIOD_S     5
 #define ALERT_MS           500
+#define BUZZER_ENABLED     0
+#define BUZZER_HZ          2000
 
 /* Atrasos artificiais do teste de estresse. 0 = desligado. */
 #define FORCE_DELAY_FEATURES_MS  0

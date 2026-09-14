@@ -64,9 +64,12 @@
   },
 
   "detector": {
-    "limiar_fake": 0.05,
+    "_comment_debounce": "Exige N frames anomalos seguidos antes de alertar. Corta quase todo falso positivo isolado ao custo de N*64 ms de latencia.",
+    "debounce_n": 2,
     "stats_period_s": 5,
     "alert_ms": 500,
+    "buzzer_enabled": 0,
+    "buzzer_hz": 2000,
     "_comment_drop": "Atrasos artificiais para o teste de estresse. 0 = desligado.",
     "force_delay_features_ms": 0,
     "force_delay_detect_ms": 0
