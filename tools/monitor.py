@@ -24,6 +24,7 @@ ROOT = Path(__file__).resolve().parents[1]
 P = json.loads((ROOT / "params.json").read_text())
 BAUD = P["serial"]["baud"]
 MUSICA = P["modes"].get("music_id", 0) == 1
+RMS_MIN = P["music_id"]["rms_min"] if MUSICA else 0.0
 
 # Nomes das musicas, gerados pelo build_db.py. O firmware manda so o indice —
 # mandar a string por frame gastaria banda serial a toa.
@@ -69,12 +70,7 @@ def spark(scores, thr):
     return "".join(saida)
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--port", default=None)
-    args = ap.parse_args()
-    porta = acha_porta(args.port)
-
+def escuta(args, porta):
     scores = deque(maxlen=N_SPARK)
     rms = cent = 0.0
     thr = None
@@ -88,7 +84,12 @@ def main():
         for i, m in enumerate(MUSICAS, 1):
             print(f"   {i}. {m}" + (f"   ({i} piscada{'s' if i > 1 else ''} no LED)"
                                     if i <= 3 else ""))
-        print("\nCtrl-C para sair\n")
+        print(f"\ncomporta de energia: rms >= {RMS_MIN:.3f} "
+              f"(abaixo disso o frame nem e testado)")
+        if args.ate_encontrar:
+            print("Esperando uma musica... (para na primeira que achar)\n")
+        else:
+            print("Ctrl-C para sair\n")
     else:
         print(f"{porta} @ {BAUD} · modo DETECCAO DE ANOMALIA · Ctrl-C para sair\n")
     try:
@@ -132,6 +133,22 @@ def main():
                         n = int(campos.get("musica", 0))
                         v = int(campos.get("votos", 0))
                         alertas += 1
+                        if args.ate_encontrar:
+                            dt = time.time() - t0
+                            print(f"\r\033[K")
+                            print(C("  ╭─────────────────────────────────"
+                                    "──────────────────╮", "36"))
+                            print(C("  │", "36") +
+                                  f"  ♪  {C(nome_musica(n), '1;36'):<40}" +
+                                  C("│", "36"))
+                            print(C("  │", "36") +
+                                  f"     {ARTISTA:<31}" + C("│", "36"))
+                            print(C("  ╰─────────────────────────────────"
+                                    "──────────────────╯", "36"))
+                            print(f"\n  identificada em {dt:.1f} s · "
+                                  f"{v} votos · {n} piscada"
+                                  f"{'s' if n > 1 else ''} no LED\n")
+                            return
                         print(f"\r\033[K{C('  ♪ ' + nome_musica(n), '1;36')}  "
                               f"{C(ARTISTA, '36')}  ·  "
                               f"{time.strftime('%H:%M:%S')}  ·  "
@@ -151,10 +168,20 @@ def main():
                     if MUSICA:
                         # Em modo musica o "score" e a contagem de votos do
                         # melhor bin, e o threshold e VOTOS_MIN.
+                        #
+                        # A comporta de energia e a causa mais comum de "nao
+                        # detecta nada": abaixo dela o frame nem chega ao
+                        # casador e os votos ficam em zero para sempre. Sem
+                        # mostrar isso, o sintoma e indistinguivel de um
+                        # banco errado.
+                        aberta = rms >= RMS_MIN
+                        porta = (C(f"rms {rms:.4f}", "32") if aberta else
+                                 C(f"rms {rms:.4f} < {RMS_MIN:.3f} PORTA FECHADA",
+                                   "1;33"))
                         print(f"\r\033[K{spark(scores, thr)}  "
                               f"votos {C(f'{atual:5.0f}', cor)}/{thr:.0f}  "
-                              f"rms {rms:.4f}  cent {cent:5.0f}Hz  "
-                              f"{C(f'{alertas} identificadas', '36' if alertas else '90')}  "
+                              f"{porta}  cent {cent:5.0f}Hz  "
+                              f"{C(f'{alertas} ident.', '36' if alertas else '90')}  "
                               f"{m:02d}:{sg:02d}", end="", flush=True)
                         continue
 
@@ -181,6 +208,15 @@ def main():
     dur = time.time() - t0
     rotulo = "musicas identificadas" if MUSICA else "alertas"
     print(f"\n\n{alertas} {rotulo} em {dur/60:.1f} min")
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--port", default=None)
+    ap.add_argument("--ate-encontrar", action="store_true",
+                    help="para na primeira musica identificada e da o veredito")
+    args = ap.parse_args()
+    escuta(args, acha_porta(args.port))
 
 
 if __name__ == "__main__":

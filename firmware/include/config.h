@@ -40,8 +40,9 @@
 #define DT_MIN             1
 #define DT_MAX             31
 #define MAX_MUSICAS        10
-#define VOTOS_MIN          30
-#define RMS_MIN_MUSICA     0.025f
+#define VOTOS_MIN          60
+#define COOLDOWN_FRAMES    234
+#define RMS_MIN_MUSICA     0.0f
 #define MARGEM_VOTOS_X10   15
 #define JANELA_FRAMES      93
 #define N_OFFSETS          4096   /* potencia de 2: o modulo vira mascara */

@@ -1,6 +1,7 @@
 #include "song_match.h"
 #include "config.h"
 
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -29,6 +30,12 @@ static uint32_t frame_atual;
  * task_detect seria estouro silencioso. */
 static uint16_t hist[MAX_MUSICAS][N_OFFSETS];
 static uint32_t frames_na_janela;
+
+/* Apos casar, o histograma zera e os votos voltam a subir: com a musica ainda
+ * tocando ele reanunciaria a cada ~3 s. O cooldown suprime a repeticao da
+ * MESMA musica; trocar de faixa anuncia na hora. */
+static int      ultima_musica = -1;
+static uint32_t frames_desde_match;
 
 static inline uint32_t faz_hash(uint8_t f1, uint8_t f2, uint8_t dt)
 {
@@ -61,6 +68,8 @@ uint32_t song_match_init(void)
     memset(ring_n, 0, sizeof(ring_n));
     frame_atual = 0;
     frames_na_janela = 0;
+    ultima_musica = -1;
+    frames_desde_match = COOLDOWN_FRAMES;
 
     ESP_LOGI(TAG, "banco: %lu entradas (%lu KB) · votos_min %d · janela %d frames",
              (unsigned long)n_entradas,
@@ -76,6 +85,10 @@ int song_match_frame(const uint8_t *picos, int n_picos, int *votos)
 {
     int melhor_musica = -1;
     uint16_t melhor_votos = 0;
+
+    if (frames_desde_match < COOLDOWN_FRAMES) {
+        frames_desde_match++;
+    }
 
     /* 1. Pareia cada pico novo com as ancoras do passado.
      *
@@ -163,7 +176,14 @@ int song_match_frame(const uint8_t *picos, int n_picos, int *votos)
             (uint32_t)MARGEM_VOTOS_X10 * (segundo ? segundo : 1)) {
             memset(hist, 0, sizeof(hist));
             frames_na_janela = 0;
-            return melhor_musica;
+
+            /* Mesma musica dentro do cooldown: conta como confirmacao, nao
+             * como novo anuncio. Musica diferente passa direto. */
+            bool repetida = (melhor_musica == ultima_musica &&
+                             frames_desde_match < COOLDOWN_FRAMES);
+            ultima_musica = melhor_musica;
+            frames_desde_match = 0;
+            return repetida ? -1 : melhor_musica;
         }
     }
 
