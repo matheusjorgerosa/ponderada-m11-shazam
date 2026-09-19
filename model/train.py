@@ -201,27 +201,72 @@ def main() -> int:
     gera_header(modelo, limiar, header, args.normal, len(normal))
 
     # ---- relatorio ----
-    fp = float((score_val > limiar).mean())
+    #
+    # Duas metricas, e a que importa e a segunda.
+    #
+    # Por FRAME subestima a deteccao: o anomaly.csv rotula a janela inteira de
+    # cada som, mas dentro do bloco de palmas a maioria dos frames e o silencio
+    # entre uma palma e outra — frames que o detector acerta em NAO marcar, e
+    # que a metrica conta como falha.
+    #
+    # Por EVENTO e o que o device faz: ele alerta quando DEBOUNCE_N frames
+    # consecutivos passam do threshold, e um alerta vale pelo evento todo.
+    # Janela de 1 s, que e a ordem de grandeza de uma palma ou de uma batida.
+    deb = P["detector"]["debounce_n"]
+    jan = max(int(round(P["sample_rate"] / P["frame_size"])), 1)   # ~1 s
+
+    def por_evento(scores: np.ndarray) -> float:
+        """Fracao das janelas em que o device teria alertado."""
+        alertas = 0
+        total = 0
+        for i in range(0, len(scores) - jan + 1, jan):
+            total += 1
+            seguidos = 0
+            for v in scores[i:i + jan]:
+                seguidos = seguidos + 1 if v > limiar else 0
+                if seguidos >= deb:
+                    alertas += 1
+                    break
+        return alertas / max(total, 1), total
+
+    fp_frame = float((score_val > limiar).mean())
+    fp_ev, n_jan_val = por_evento(score_val)
+
     print()
     print(f"threshold (percentil {args.percentil:g} da validacao): {limiar:.6f}")
-    print(f"falso positivo no normal: {fp:.2%}   (meta < 2%)")
+    print(f"debounce: {deb} frames consecutivos · janela de evento: {jan} frames (~1 s)")
+    print()
+    print(f"{'':<26}{'por frame':>12}{'por evento':>13}")
+    print("-" * 51)
+    print(f"{'falso positivo (normal)':<26}{fp_frame:>11.2%}{fp_ev:>12.2%}")
 
     if score_ano is not None and len(score_ano):
-        tp = float((score_ano > limiar).mean())
-        print(f"deteccao nas anomalias:   {tp:.2%}   (meta > 85%)")
-        n_val, n_ano = len(score_val), len(score_ano)
+        tp_frame = float((score_ano > limiar).mean())
+        tp_ev, n_jan_ano = por_evento(score_ano)
+        print(f"{'deteccao (anomalia)':<26}{tp_frame:>11.2%}{tp_ev:>12.2%}")
+
+        vn = int(round(n_jan_val * (1 - fp_ev)));  fp_n = n_jan_val - vn
+        vp = int(round(n_jan_ano * tp_ev));        fn_n = n_jan_ano - vp
         print()
-        print("matriz de confusao")
+        print(f"matriz de confusao, por janela de ~1 s")
         print(f"{'':>12}{'previu normal':>16}{'previu anomalia':>18}")
-        print(f"{'normal':>12}{int(n_val*(1-fp)):>16}{int(n_val*fp):>18}")
-        print(f"{'anomalia':>12}{int(n_ano*(1-tp)):>16}{int(n_ano*tp):>18}")
-        acuracia = (n_val * (1 - fp) + n_ano * tp) / (n_val + n_ano)
-        print(f"\nacuracia: {acuracia:.2%}")
-        if fp >= 0.02 or tp <= 0.85:
-            print("\nFORA DA META. Ajuste --percentil antes de mexer na rede: "
-                  "subir reduz falso positivo, descer aumenta deteccao.")
+        print(f"{'normal':>12}{vn:>16}{fp_n:>18}")
+        print(f"{'anomalia':>12}{fn_n:>16}{vp:>18}")
+        acc = (vn + vp) / (n_jan_val + n_jan_ano)
+        print(f"\nacuracia por evento: {acc:.2%}  "
+              f"({n_jan_val} janelas normais, {n_jan_ano} anomalas)")
+
+        if fp_ev < 0.02 and tp_ev > 0.85:
+            print("\nDENTRO DA META (falso positivo < 2%, deteccao > 85%).")
+        else:
+            print("\nFORA DA META. Ajuste --percentil: subir reduz falso "
+                  "positivo, descer aumenta deteccao.")
+        if n_jan_ano < 60:
+            print(f"Ressalva: so {n_jan_ano} janelas anomalas — "
+                  f"cada uma vale {100/n_jan_ano:.1f} pontos percentuais.")
     else:
-        print("sem anomaly.csv — colete 1 min de anomalias pra validar o threshold")
+        print("\nsem anomaly.csv — colete com: "
+              "model/collect.py --guiado --saida model/data/anomaly.csv")
 
     print(f"\ngerado: {onnx_path.relative_to(ROOT)}")
     print(f"gerado: {header.relative_to(ROOT)}")

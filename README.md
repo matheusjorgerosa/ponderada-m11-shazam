@@ -79,7 +79,7 @@ cd firmware
 
 ## Estado atual
 
-**Batch 6 — inferência no device.** O pipeline de concorrência é o definitivo
+**Fase 1 completa.** O pipeline de concorrência é o definitivo
 desde o Batch 2: os batches seguintes trocam o *algoritmo* dentro das tasks, não a
 estrutura.
 
@@ -127,12 +127,19 @@ O threshold sai do percentil 99 de um conjunto de validação **separado do
 treino**. Calculá-lo sobre os dados que o treino viu daria um número otimista,
 e você descobriria isso na demonstração.
 
-> ⚠️ Os artefatos versionados hoje vêm de **dados sintéticos**, só para o
-> firmware compilar. O cabeçalho do `model_weights.h` registra a procedência:
-> ```c
-> /* Origem: model/data/normal.csv · 9400 frames · 2026-09-14 10:27 */
-> ```
-> Rode `train.py` com áudio real coletado antes de entregar.
+O modelo versionado foi treinado com **áudio real** — 20,6 min de ambiente em
+dois estados térmicos da máquina e 48 s de anomalias (palmas, assobio, batidas,
+fala), tudo pelo mesmo microfone e na mesma sala. O cabeçalho do
+`model_weights.h` registra a procedência.
+
+Resultado por janela de ~1 s: **acurácia 99,65%**, falso positivo 0,41%,
+detecção 100,00%. Detalhes e ressalvas em [`docs/relatorio.md`](docs/relatorio.md).
+
+Para coletar as anomalias com roteiro na tela:
+
+```bash
+.venv/bin/python model/collect.py --guiado --saida model/data/anomaly.csv
+```
 
 No device, `detector.c` faz as quatro matmuls em C puro sobre pesos em
 `.rodata` — sem TFLite, sem runtime externo, sem quantização. Um alerta exige
@@ -164,6 +171,38 @@ A comparação é feita relativa ao RMS do vetor de features, não elemento a el
 Num tom puro, 18 dos 20 filtros mel ficam grudados no piso `log(1e-10)`, onde o
 log amplifica ruído de `float32` e MFCC nenhum é reprodutível — nenhum microfone
 entrega isso. Nos sinais com piso de ruído realista, C e Python concordam em ~1e-6.
+
+## Rodar e ver funcionando
+
+```bash
+.venv/bin/python tools/monitor.py
+```
+
+Monitor ao vivo no terminal: sparkline dos últimos ~3,5 s do score em escala log
+relativa ao threshold (verde abaixo, vermelho acima), valores atuais e contador
+de alertas. Cada anomalia imprime uma linha permanente:
+
+```
+▁▁▂▁▁▂▁▁▁▂▁▁▁▁▂▁▁▁  score  0.312/0.998  rms 0.0031  cent  941Hz  3 alertas  02:14
+  ANOMALIA  23:51:12  score   4.821 =   4.8x o limiar  ·  rms 0.0421  centroide 1180 Hz  ·  latencia 3.21 ms
+```
+
+Se o ambiente ficar permanentemente acima do limiar, ele avisa:
+`MODELO DESATUALIZADO PARA ESTE AMBIENTE — recolete e retreine`. Isso importa
+porque o alerta dispara **uma vez** e só rearma quando o score volta abaixo do
+threshold — um modelo saturado parece parado, não parece quebrado.
+
+### Recalibrar para um ambiente novo
+
+O perfil normal precisa cobrir as condições de operação. Num ambiente diferente
+daquele onde o modelo foi treinado, refaça:
+
+```bash
+.venv/bin/python model/collect.py --minutos 10 --saida model/data/normal.csv
+.venv/bin/python model/collect.py --guiado  --saida model/data/anomaly.csv
+.venv/bin/python model/train.py
+cd firmware && ../.venv-pio/bin/pio run -t upload
+```
 
 ## Dashboard
 
