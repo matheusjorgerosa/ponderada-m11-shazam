@@ -8,5 +8,5 @@ firmware/managed_components/
 .venv/
 tests/data/
 docs/latencia.png
-firmware/song_db.bin
 music_id/songs.json
+firmware/src/song_db.c

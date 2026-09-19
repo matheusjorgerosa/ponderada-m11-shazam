@@ -20,7 +20,13 @@ void stats_drop(int a) { (void)a; }
 stats_t stats_snapshot(void) { return stats; }
 void alert_init(void) {}
 void alert_trigger(void) {}
+void alert_pattern(int n) { (void)n; }
 void alert_update(void) {}
+/* Sob MODE_MUSIC_ID o detector.c chama o casador; a task_detect nao roda
+ * aqui, mas o linker precisa dos simbolos. */
+uint32_t song_match_init(void) { return 0; }
+int song_match_frame(const uint8_t *p, int n, int *v)
+{ (void)p; (void)n; if (v) *v = 0; return -1; }
 void stream_emit(const feature_frame_t *ff, float s) { (void)ff; (void)s; }
 
 int main(void)
