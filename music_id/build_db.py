@@ -37,7 +37,6 @@ JANELA_FRAMES = int(MID["janela_s"] * dsp.SR / dsp.HOP)
 N_OFFSETS = MID["offsets"]
 VOTOS_MIN = MID["votos_min"]
 MARGEM_X10 = MID["margem_votos_x10"]
-MAX_ENT_HASH = MID["max_entradas_hash"]
 
 DB_C = ROOT / "firmware/src/song_db.c"
 LISTA = ROOT / "music_id/songs.json"
@@ -171,10 +170,7 @@ def casa(arr: np.ndarray, hs: list[tuple[int, int]]) -> tuple[int, int, int]:
 
     for h, t_query in hs:
         i = int(np.searchsorted(chaves, np.uint64(h), side="left"))
-        j = int(np.searchsorted(chaves, np.uint64(h), side="right"))
-        if j - i > MAX_ENT_HASH:
-            continue          # hash popular demais: e por onde o ruido entra
-        while i < j:
+        while i < len(arr) and int(chaves[i]) == h:
             payload = int(arr[i]) & 0xFFFFFFFF
             sid, t_db = payload >> 24, payload & 0xFFFFFF
             hist[sid, (t_db - t_query) % N_OFFSETS] += 1

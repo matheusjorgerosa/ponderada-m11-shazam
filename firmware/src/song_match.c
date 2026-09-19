@@ -44,14 +44,13 @@ static inline uint32_t faz_hash(uint8_t f1, uint8_t f2, uint8_t dt)
 
 /* Primeira entrada com hash >= alvo. O hash mora nos 32 bits altos, entao
  * comparar o uint64 inteiro ja ordena por hash. */
-static uint32_t limite(uint32_t alvo, int superior)
+static uint32_t limite_inferior(uint32_t alvo)
 {
-    uint64_t chave = ((uint64_t)alvo << 32) | (superior ? 0xFFFFFFFFu : 0u);
+    uint64_t chave = (uint64_t)alvo << 32;
     uint32_t lo = 0, hi = n_entradas;
     while (lo < hi) {
         uint32_t meio = lo + (hi - lo) / 2;
-        int antes = superior ? (banco[meio] <= chave) : (banco[meio] < chave);
-        if (antes) {
+        if (banco[meio] < chave) {
             lo = meio + 1;
         } else {
             hi = meio;
@@ -113,18 +112,9 @@ int song_match_frame(const uint8_t *picos, int n_picos, int *votos)
                 ring_cota[slot][k]--;
 
                 uint32_t h = faz_hash(ring_banda[slot][k], f2, (uint8_t)dt);
-                uint32_t idx = limite(h, 0);
-                uint32_t fim = limite(h, 1);
+                uint32_t idx = limite_inferior(h);
 
-                /* Hash popular demais carrega pouca informacao e e por onde
-                 * o ruido de sala entra: os picos do ambiente sao repetitivos
-                 * e caem sempre nos mesmos hashes. Pular esses derruba o piso
-                 * sem tocar no sinal, que usa tambem os raros. */
-                if (fim - idx > MAX_ENTRADAS_HASH) {
-                    continue;
-                }
-
-                while (idx < fim) {
+                while (idx < n_entradas && (uint32_t)(banco[idx] >> 32) == h) {
                     uint32_t carga = (uint32_t)(banco[idx] & 0xFFFFFFFFu);
                     uint32_t sid   = carga >> 24;
                     uint32_t t_db  = carga & 0xFFFFFFu;

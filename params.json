@@ -72,12 +72,8 @@
     "offsets": 4096,
     "_comment_votacao": "Janela de 14 s. Nao e o tempo de deteccao — o device dispara assim que os votos cruzam o limiar com margem, tipicamente em 4 a 7 s. A janela e o horizonte de memoria, e alonga-la separa sinal de ruido: os votos da musica crescem linearmente com o tempo no bin correto, enquanto o maximo do ruido, espalhado por 4096 bins, cresce muito mais devagar. Com 6 s dava 4/8 a -5 dB; com 14 s da 8/8.",
     "janela_s": 14,
-    "_comment_porta": "Comporta desligada (0). Ela foi introduzida para cortar falso casamento no ambiente, mas estava barrando musica de volume normal: com rms_min=0,025 nenhum frame de um celular a 1 m passava. Medido sem comporta, o ambiente chega a 47 votos no melhor bin e o limiar de 60 ja da zero falsos — o limiar resolve sozinho, sem bloquear sinal fraco.",
-    "rms_min": 0.0,
     "_comment_cooldown": "Depois de casar, o histograma zera e os votos voltam a acumular — com a musica ainda tocando ele reanunciaria a cada ~3 s. Este tempo de silencio suprime a repeticao da MESMA musica. Trocar de faixa anuncia na hora, sem esperar.",
     "cooldown_s": 15,
-    "_comment_hash_comum": "Corte de hash popular na consulta, ao estilo Shazam. Testado e DESLIGADO (valor alto): com cap=32 um hash de uma unica musica ja tem 32 entradas, entao qualquer corte util tambem mata os hashes compartilhados que a musica legitimamente usa — corte em 40 derrubou a deteccao de 8/8 para 3/8. Fica o mecanismo, caso o banco cresca a ponto de precisar.",
-    "max_entradas_hash": 100000,
     "votos_min": 60,
     "_comment_margem": "O vencedor tem que bater o segundo colocado (entre as OUTRAS musicas) por esta razao, em decimos. Sem isso o device dispara no primeiro bin que cruza votos_min, e no inicio da consulta uma musica errada pode liderar por acaso — foi assim que 2 de 10 sairam erradas no teste. Enquanto a margem nao e atingida, o histograma continua acumulando e a decisao espera.",
     "margem_votos_x10": 15

@@ -140,14 +140,8 @@ void task_detect(void *arg)
             /* Mesmo pipeline, algoritmo diferente: em vez do erro de
              * reconstrucao, casamento de fingerprint por votacao. As tasks,
              * filas, semaforo e mutex sao exatamente os mesmos. */
-            /* Comporta de energia: frame no nivel do ambiente nao entra no
-             * casador. Sem isso o ruido de sala acumula votos suficientes
-             * para casar sozinho — medido, 58 falsos em 2,5 min. */
             int votos = 0;
-            int musica = -1;
-            if (ff.f[0] >= RMS_MIN_MUSICA) {
-                musica = song_match_frame(ff.picos, ff.n_picos, &votos);
-            }
+            int musica = song_match_frame(ff.picos, ff.n_picos, &votos);
             float score   = (float)votos;
             bool anomalia = (musica >= 0);
             ff.t_detect   = esp_timer_get_time();

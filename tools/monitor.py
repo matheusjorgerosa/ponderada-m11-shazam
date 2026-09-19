@@ -24,7 +24,6 @@ ROOT = Path(__file__).resolve().parents[1]
 P = json.loads((ROOT / "params.json").read_text())
 BAUD = P["serial"]["baud"]
 MUSICA = P["modes"].get("music_id", 0) == 1
-RMS_MIN = P["music_id"]["rms_min"] if MUSICA else 0.0
 
 # Nomes das musicas, gerados pelo build_db.py. O firmware manda so o indice —
 # mandar a string por frame gastaria banda serial a toa.
@@ -84,8 +83,7 @@ def escuta(args, porta):
         for i, m in enumerate(MUSICAS, 1):
             print(f"   {i}. {m}" + (f"   ({i} piscada{'s' if i > 1 else ''} no LED)"
                                     if i <= 3 else ""))
-        print(f"\ncomporta de energia: rms >= {RMS_MIN:.3f} "
-              f"(abaixo disso o frame nem e testado)")
+        print()
         if args.ate_encontrar:
             print("Esperando uma musica... (para na primeira que achar)\n")
         else:
@@ -169,18 +167,9 @@ def escuta(args, porta):
                         # Em modo musica o "score" e a contagem de votos do
                         # melhor bin, e o threshold e VOTOS_MIN.
                         #
-                        # A comporta de energia e a causa mais comum de "nao
-                        # detecta nada": abaixo dela o frame nem chega ao
-                        # casador e os votos ficam em zero para sempre. Sem
-                        # mostrar isso, o sintoma e indistinguivel de um
-                        # banco errado.
-                        aberta = rms >= RMS_MIN
-                        porta = (C(f"rms {rms:.4f}", "32") if aberta else
-                                 C(f"rms {rms:.4f} < {RMS_MIN:.3f} PORTA FECHADA",
-                                   "1;33"))
                         print(f"\r\033[K{spark(scores, thr)}  "
                               f"votos {C(f'{atual:5.0f}', cor)}/{thr:.0f}  "
-                              f"{porta}  cent {cent:5.0f}Hz  "
+                              f"rms {rms:.4f}  cent {cent:5.0f}Hz  "
                               f"{C(f'{alertas} ident.', '36' if alertas else '90')}  "
                               f"{m:02d}:{sg:02d}", end="", flush=True)
                         continue

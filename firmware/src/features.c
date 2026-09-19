@@ -86,7 +86,7 @@ esp_err_t features_init(void)
     return ESP_OK;
 }
 
-float features_rms(const float *x, int n)
+static float rms_do_frame(const float *x, int n)
 {
     float acc = 0.0f;
     for (int i = 0; i < n; i++) {
@@ -94,8 +94,6 @@ float features_rms(const float *x, int n)
     }
     return sqrtf(acc / (float)n);
 }
-
-const float *features_spectrum(void) { return mag; }
 
 /* MAXIMO da banda, nao media: nas bandas graves o espaco log e mais estreito
  * que um bin, e a media achataria tom puro contra o piso vizinho. O que se
@@ -227,7 +225,7 @@ static void dct2(float *out)
 
 void features_compute(const float *x, float *out)
 {
-    out[0] = features_rms(x, FRAME_SIZE);
+    out[0] = rms_do_frame(x, FRAME_SIZE);
 
     /* FFT complexa com a parte imaginaria zerada. O truque de empacotar dois
      * sinais reais numa FFT de N/2 economizaria ~1 ms, e o frame tem 64 ms
