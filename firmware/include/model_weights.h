@@ -1,6 +1,6 @@
 /* GERADO POR model/train.py — NAO EDITE A MAO.
  *
- * Origem: model/data/normal.csv · 19345 frames · 2026-09-20 23:31
+ * Origem: model/data/normal.csv · 19345 frames · 2026-09-19 11:31
  *
  * Autoencoder 15->8->4->8->15, float32.
  * Pesos em [saida][entrada], linha por linha: acumule w[o*n_in + i] * x[i].

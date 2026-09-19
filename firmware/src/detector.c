@@ -59,9 +59,13 @@ float detector_score(const float *features)
 /* Debounce: um frame isolado acima do threshold quase sempre e ruido. Exigir
  * DEBOUNCE_N consecutivos custa DEBOUNCE_N*64 ms de latencia e corta quase
  * todo falso positivo. */
-bool detector_is_anomaly(float score)
+bool detector_is_anomaly(float score, bool *novo_episodio)
 {
     static int seguidos = 0;
+
+    if (novo_episodio) {
+        *novo_episodio = false;
+    }
 
     if (score <= model_threshold) {
         seguidos = 0;
@@ -69,10 +73,10 @@ bool detector_is_anomaly(float score)
     }
 
     seguidos++;
-    if (seguidos == DEBOUNCE_N) {
-        return true;        /* dispara uma vez; so rearma apos voltar ao normal */
+    if (seguidos == DEBOUNCE_N && novo_episodio) {
+        *novo_episodio = true;      /* transicao: conta como um alerta */
     }
-    return false;
+    return seguidos >= DEBOUNCE_N;  /* estado: mantem o LED aceso */
 }
 
 /* Latencia ponta a ponta acumulada. So esta task toca nessas variaveis,
@@ -123,7 +127,7 @@ void task_detect(void *arg)
 #endif
 #if MODE_DATASET
     /* Cabecalho uma vez so; daqui pra frente o serial e CSV puro, sem log
-     * nenhum, pra que o collect.py do Batch 5 possa ler linha a linha. */
+     * nenhum, pra que o collect.py possa ler linha a linha. */
     printf("rms,centroid");
     for (int i = 0; i < N_MFCC; i++) {
         printf(",mfcc%d", i);
@@ -141,7 +145,8 @@ void task_detect(void *arg)
              * coexistir — e cabem: o autoencoder custa 0,17 ms e o casamento
              * 46 us, contra 64 ms de orcamento por frame. */
             float score   = detector_score(ff.f);
-            bool anomalia = detector_is_anomaly(score);
+            bool novo     = false;
+            bool anomalia = detector_is_anomaly(score, &novo);
 
             /* Mesmo pipeline, segundo algoritmo: em vez do erro de
              * reconstrucao, casamento de fingerprint por votacao. As tasks,
@@ -176,8 +181,13 @@ void task_detect(void *arg)
                 lat_max = lat;
             }
 
+            /* Enquanto durar a anomalia, cada frame renova o prazo do LED —
+             * ele so apaga ALERT_MS depois do som acabar. O contador e o log,
+             * esses, so marcam a transicao. */
             if (anomalia) {
                 alert_trigger();
+            }
+            if (novo) {
                 stats_add(0, 1);
             }
 #if !MODE_DATASET
@@ -188,7 +198,7 @@ void task_detect(void *arg)
                    ",%d,%d"
 #endif
                    "\n",
-                   ff.seq, score, model_threshold, anomalia ? 1 : 0,
+                   ff.seq, score, model_threshold, novo ? 1 : 0,
                    lat_cf, lat_fd, lat
 #if MODE_MUSIC_ID
                    , votos, VOTOS_MIN
