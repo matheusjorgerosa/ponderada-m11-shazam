@@ -81,8 +81,7 @@ def escuta(args, porta):
         print(f"{porta} @ {BAUD} · modo IDENTIFICACAO DE MUSICA · "
               f"{len(MUSICAS)} faixas de {ARTISTA}")
         for i, m in enumerate(MUSICAS, 1):
-            print(f"   {i}. {m}" + (f"   ({i} piscada{'s' if i > 1 else ''} no LED)"
-                                    if i <= 3 else ""))
+            print(f"   {i}. {m}")
         print()
         if args.ate_encontrar:
             print("Esperando uma musica... (para na primeira que achar)\n")
@@ -144,14 +143,12 @@ def escuta(args, porta):
                             print(C("  ╰─────────────────────────────────"
                                     "──────────────────╯", "36"))
                             print(f"\n  identificada em {dt:.1f} s · "
-                                  f"{v} votos · {n} piscada"
-                                  f"{'s' if n > 1 else ''} no LED\n")
+                                  f"{v} votos · LED verde aceso por 5 s\n")
                             return
                         print(f"\r\033[K{C('  ♪ ' + nome_musica(n), '1;36')}  "
                               f"{C(ARTISTA, '36')}  ·  "
                               f"{time.strftime('%H:%M:%S')}  ·  "
-                              f"{v} votos  ·  {n} piscada"
-                              f"{'s' if n > 1 else ''} no LED")
+                              f"{v} votos")
 
                     elif l.startswith("I (") or l.startswith("E (") or l.startswith("W ("):
                         print(f"\r\033[K{C(l, '90')}")

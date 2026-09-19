@@ -146,7 +146,7 @@ void task_detect(void *arg)
             bool anomalia = (musica >= 0);
             ff.t_detect   = esp_timer_get_time();
             if (anomalia) {
-                alert_pattern(musica + 1);      /* n piscadas = musica n */
+                alert_musica();
                 printf("MATCH musica=%d votos=%d\n", musica + 1, votos);
             }
 #else

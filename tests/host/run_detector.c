@@ -20,7 +20,7 @@ void stats_drop(int a) { (void)a; }
 stats_t stats_snapshot(void) { return stats; }
 void alert_init(void) {}
 void alert_trigger(void) {}
-void alert_pattern(int n) { (void)n; }
+void alert_musica(void) {}
 void alert_update(void) {}
 /* Sob MODE_MUSIC_ID o detector.c chama o casador; a task_detect nao roda
  * aqui, mas o linker precisa dos simbolos. */

@@ -44,7 +44,8 @@ config_h = f"""/* GERADO POR tools/gen_config.py A PARTIR DE params.json — NAO
 #define PIN_I2S_BCK        {pins["i2s_bck"]}
 #define PIN_I2S_WS         {pins["i2s_ws"]}
 #define PIN_I2S_DATA       {pins["i2s_data"]}
-#define PIN_LED            {pins["led"]}
+#define PIN_LED_ANOMALIA   {pins["led_anomalia"]}
+#define PIN_LED_MUSICA     {pins["led_musica"]}
 #define PIN_BUZZER         {pins["buzzer"]}
 
 /* ---- I2S ---- */
@@ -95,6 +96,7 @@ config_h = f"""/* GERADO POR tools/gen_config.py A PARTIR DE params.json — NAO
 #define DEBOUNCE_N         {det["debounce_n"]}
 #define STATS_PERIOD_S     {det["stats_period_s"]}
 #define ALERT_MS           {det["alert_ms"]}
+#define MUSICA_MS          {det["musica_ms"]}
 #define BUZZER_ENABLED     {det["buzzer_enabled"]}
 #define BUZZER_HZ          {det["buzzer_hz"]}
 

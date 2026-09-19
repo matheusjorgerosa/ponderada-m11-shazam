@@ -19,7 +19,8 @@
 #define PIN_I2S_BCK        26
 #define PIN_I2S_WS         25
 #define PIN_I2S_DATA       33
-#define PIN_LED            2
+#define PIN_LED_ANOMALIA   5
+#define PIN_LED_MUSICA     18
 #define PIN_BUZZER         4
 
 /* ---- I2S ---- */
@@ -70,6 +71,7 @@
 #define DEBOUNCE_N         3
 #define STATS_PERIOD_S     5
 #define ALERT_MS           500
+#define MUSICA_MS          5000
 #define BUZZER_ENABLED     0
 #define BUZZER_HZ          2000
 

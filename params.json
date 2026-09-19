@@ -12,7 +12,9 @@
     "i2s_bck": 26,
     "i2s_ws": 25,
     "i2s_data": 33,
-    "led": 2,
+    "_comment": "Dois LEDs separados: um por tipo de evento. Contar piscadas para saber qual musica era ruim de ler — o nome sai no terminal.",
+    "led_anomalia": 5,
+    "led_musica": 18,
     "buzzer": 4
   },
   "i2s": {
@@ -98,6 +100,7 @@
     "buzzer_hz": 2000,
     "_comment_drop": "Atrasos artificiais para o teste de estresse. 0 = desligado.",
     "force_delay_features_ms": 0,
-    "force_delay_detect_ms": 0
+    "force_delay_detect_ms": 0,
+    "musica_ms": 5000
   }
 }

@@ -27,9 +27,10 @@ Planejamento completo e cronograma: [`PLANO.md`](PLANO.md).
      │       SD  ├────────────────────┤ GPIO33       │
      └───────────┘                    │              │
                                       │              │
-     LED ──[220Ω]──────────────────── ┤ GPIO2        │
+     LED anomalia ──[220Ω]─────────── ┤ GPIO5        │
       └──────────────────────────────┤ GND          │
-                                      │              │
+     LED música (verde) ──[220Ω]───── ┤ GPIO18       │
+      └──────────────────────────────┤ GND          │
      Buzzer ────────────────────────── ┤ GPIO4        │
       └──────────────────────────────┤ GND          │
                                       └──────────────┘
@@ -43,6 +44,17 @@ Planejamento completo e cronograma: [`PLANO.md`](PLANO.md).
 | WS      | GPIO25  | Word select (LRCLK)                                 |
 | SCK     | GPIO26  | Bit clock (BCLK)                                    |
 | SD      | GPIO33  | Dados (serial data out do mic)                      |
+
+Os dois LEDs vão do GPIO ao GND, cada um com resistor de 220 Ω em série. A
+perna longa (anodo) fica no lado do resistor.
+
+| LED | GPIO | Quando acende |
+|-----|------|---------------|
+| Anomalia | GPIO5 | 500 ms a cada anomalia detectada |
+| Música (verde) | GPIO18 | 5 s a cada música identificada |
+
+Os dois piscam 3 vezes no boot, como autoteste — se não piscarem, o problema é
+de ligação, não de detecção.
 
 > ⚠️ **Armadilha nº 1 do INMP441.** O pino L/R define em qual metade do frame I2S o
 > mic fala. Se ele está em GND, o firmware precisa ler o slot **esquerdo**; se está
@@ -197,8 +209,9 @@ O monitor lista as faixas no início e anuncia cada identificação:
 ♪ Radio/Video  System of a Down  ·  08:56:07  ·  41 votos  ·  5 piscadas no LED
 ```
 
-O LED pisca o número da música. Sem WiFi: o índice vai pelo serial e o nome
-vem do `music_id/songs.json`, gerado junto com o banco.
+O LED verde do GPIO18 fica aceso por 5 s. Qual música é você lê no terminal:
+sem WiFi, o índice vai pelo serial e o nome vem do `music_id/songs.json`,
+gerado junto com o banco.
 
 ### Como funciona
 
