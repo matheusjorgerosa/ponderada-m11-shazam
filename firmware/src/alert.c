@@ -12,6 +12,14 @@
  * por deadline, checado a cada volta do loop. */
 static int64_t desliga_em = 0;
 
+/* Padrao de piscadas: n piscadas de PISCA_MS, para dizer QUAL musica casou.
+ * Sem vTaskDelay, pelo mesmo motivo do alerta simples — a task_detect precisa
+ * continuar consumindo a q_features. */
+#define PISCA_MS 150
+static int     piscadas_restantes = 0;
+static bool    pisca_aceso = false;
+static int64_t proxima_troca = 0;
+
 #if BUZZER_ENABLED
 #define BUZZER_TIMER   LEDC_TIMER_0
 #define BUZZER_CANAL   LEDC_CHANNEL_0
@@ -63,6 +71,14 @@ void alert_init(void)
     buzzer_init();
 }
 
+void alert_pattern(int n)
+{
+    piscadas_restantes = n * 2;      /* cada piscada = acende + apaga */
+    pisca_aceso = false;
+    proxima_troca = esp_timer_get_time();
+    desliga_em = 0;                  /* o padrao tem prioridade sobre o alerta */
+}
+
 void alert_trigger(void)
 {
     gpio_set_level(PIN_LED, 1);
@@ -72,6 +88,21 @@ void alert_trigger(void)
 
 void alert_update(void)
 {
+    int64_t agora = esp_timer_get_time();
+
+    if (piscadas_restantes > 0) {
+        if (agora >= proxima_troca) {
+            pisca_aceso = !pisca_aceso;
+            gpio_set_level(PIN_LED, pisca_aceso);
+            proxima_troca = agora + (int64_t)PISCA_MS * 1000;
+            piscadas_restantes--;
+            if (piscadas_restantes == 0) {
+                gpio_set_level(PIN_LED, 0);
+            }
+        }
+        return;                      /* enquanto pisca, ignora o alerta simples */
+    }
+
     if (desliga_em != 0 && esp_timer_get_time() >= desliga_em) {
         gpio_set_level(PIN_LED, 0);
         buzzer_set(0);

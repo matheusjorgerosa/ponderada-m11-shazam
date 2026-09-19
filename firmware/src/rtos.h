@@ -27,6 +27,8 @@ typedef struct {
     uint32_t seq;
     float    f[N_FEATURES];   /* [0]=RMS  [1]=centroid  [2..14]=MFCC */
     uint8_t  bands[N_BANDS];  /* espectro em 64 bandas log, dB escalado 0..255 */
+    uint8_t  picos[N_SUPER];  /* MODE_MUSIC_ID: indices de banda dos picos */
+    uint8_t  n_picos;
     int64_t  t_capture;
     int64_t  t_features;
     int64_t  t_detect;

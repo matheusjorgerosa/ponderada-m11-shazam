@@ -278,6 +278,18 @@ void task_features(void *arg)
         ff.t_detect  = 0;
         features_compute(audio_pool[m.idx], ff.f);
         features_bands(ff.bands);
+#if MODE_MUSIC_ID
+        /* A FFT ja rodou; o peak picking reaproveita o mesmo espectro.
+         * Os MFCCs continuam sendo calculados porque custam 0,2 ms e mantem
+         * o dashboard e o log identicos nos dois modos. */
+        {
+            uint8_t fp[N_BANDS_FP];
+            features_fp_bands(fp);
+            ff.n_picos = (uint8_t)features_peaks(fp, ff.picos);
+        }
+#else
+        ff.n_picos = 0;
+#endif
         ff.t_features = esp_timer_get_time();
 
         /* Devolve o buffer ANTES de enfileirar. Quanto antes ele volta pro

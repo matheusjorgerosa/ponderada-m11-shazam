@@ -3,6 +3,7 @@
 #include "config.h"
 #include "model_weights.h"
 #include "rtos.h"
+#include "song_match.h"
 #include "stream.h"
 
 #include <inttypes.h>
@@ -117,6 +118,9 @@ void task_detect(void *arg)
     feature_frame_t ff;
     int64_t ultimo_stats = esp_timer_get_time();
 
+#if MODE_MUSIC_ID
+    song_match_init();
+#endif
 #if MODE_DATASET
     /* Cabecalho uma vez so; daqui pra frente o serial e CSV puro, sem log
      * nenhum, pra que o collect.py do Batch 5 possa ler linha a linha. */
@@ -132,9 +136,24 @@ void task_detect(void *arg)
 #if FORCE_DELAY_DETECT_MS > 0
             vTaskDelay(pdMS_TO_TICKS(FORCE_DELAY_DETECT_MS));
 #endif
+#if MODE_MUSIC_ID
+            /* Mesmo pipeline, algoritmo diferente: em vez do erro de
+             * reconstrucao, casamento de fingerprint por votacao. As tasks,
+             * filas, semaforo e mutex sao exatamente os mesmos. */
+            int votos = 0;
+            int musica = song_match_frame(ff.picos, ff.n_picos, &votos);
+            float score   = (float)votos;
+            bool anomalia = (musica >= 0);
+            ff.t_detect   = esp_timer_get_time();
+            if (anomalia) {
+                alert_pattern(musica + 1);      /* n piscadas = musica n */
+                printf("MATCH musica=%d votos=%d\n", musica + 1, votos);
+            }
+#else
             float score   = detector_score(ff.f);
             bool anomalia = detector_is_anomaly(score);
             ff.t_detect   = esp_timer_get_time();
+#endif
 
 #if MODE_DATASET
             printf("%.6f,%.2f", ff.f[0], ff.f[1]);
@@ -157,13 +176,21 @@ void task_detect(void *arg)
             }
 
             if (anomalia) {
+#if !MODE_MUSIC_ID
                 alert_trigger();
+#endif
                 stats_add(0, 1);
             }
 #if !MODE_DATASET
+#if MODE_MUSIC_ID
+            printf("D,%" PRIu32 ",%.6f,%.6f,%d,%" PRId64 ",%" PRId64 ",%" PRId64 "\n",
+                   ff.seq, score, (float)VOTOS_MIN, anomalia ? 1 : 0,
+                   lat_cf, lat_fd, lat);
+#else
             printf("D,%" PRIu32 ",%.6f,%.6f,%d,%" PRId64 ",%" PRId64 ",%" PRId64 "\n",
                    ff.seq, score, model_threshold, anomalia ? 1 : 0,
                    lat_cf, lat_fd, lat);
+#endif
 #endif
         }
 
