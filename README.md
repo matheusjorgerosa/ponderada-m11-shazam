@@ -186,10 +186,13 @@ entrega isso. Nos sinais com piso de ruído realista, C e Python concordam em ~1
 
 ## Identificação de músicas (Fase 2)
 
-Um modo alternativo: em vez do erro de reconstrução do autoencoder, a Task 3
-faz casamento de fingerprint estilo Shazam contra um banco embarcado. **A
-arquitetura RTOS não muda** — mesmas três tasks, mesmas filas, mesmo semáforo,
-mesmo mutex. Troca-se só o algoritmo dentro das Tasks 2 e 3.
+Com `modes.music_id = 1` a Task 3 roda **dois detectores no mesmo frame**: o
+autoencoder da Fase 1 e um casamento de fingerprint estilo Shazam contra um
+banco embarcado. Cada um acende seu próprio LED. Cabem juntos com folga — o
+autoencoder custa 0,17 ms e o casamento 46 µs, contra 64 ms de orçamento.
+
+**A arquitetura RTOS não muda** — mesmas três tasks, mesmas filas, mesmo
+semáforo, mesmo mutex. Muda só o que roda dentro das Tasks 2 e 3.
 
 ```bash
 # 1. coloque os arquivos de áudio em music_id/songs/

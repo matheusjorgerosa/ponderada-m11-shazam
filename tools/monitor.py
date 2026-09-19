@@ -73,13 +73,15 @@ def escuta(args, porta):
     scores = deque(maxlen=N_SPARK)
     rms = cent = 0.0
     thr = None
-    alertas = 0
+    votos = votos_min = 0
+    alertas = 0          # anomalias
+    musicas = 0          # faixas identificadas
     t0 = time.time()
     ultimo_desenho = 0.0
 
     if MUSICA:
-        print(f"{porta} @ {BAUD} · modo IDENTIFICACAO DE MUSICA · "
-              f"{len(MUSICAS)} faixas de {ARTISTA}")
+        print(f"{porta} @ {BAUD} · ANOMALIA (LED GPIO5) + MUSICA (LED GPIO18)")
+        print(f"{len(MUSICAS)} faixas de {ARTISTA}:")
         for i, m in enumerate(MUSICAS, 1):
             print(f"   {i}. {m}")
         print()
@@ -105,16 +107,16 @@ def escuta(args, porta):
                         except ValueError:
                             pass
 
-                    elif l.startswith("D,") and len(p) == 8:
+                    elif l.startswith("D,") and len(p) >= 8:
                         try:
                             sc, thr = float(p[2]), float(p[3])
                             anom, lat = p[4] == "1", int(p[7])
+                            if len(p) >= 10:        # extras do modo musica
+                                votos, votos_min = int(p[8]), int(p[9])
                         except ValueError:
                             continue
                         scores.append(sc)
-                        if anom and MUSICA:
-                            pass          # a linha MATCH ja reportou
-                        elif anom:
+                        if anom:
                             alertas += 1
                             print(f"\r\033[K{C('  ANOMALIA', '1;31')}  "
                                   f"{time.strftime('%H:%M:%S')}  "
@@ -129,7 +131,7 @@ def escuta(args, porta):
                                       if "=" in x)
                         n = int(campos.get("musica", 0))
                         v = int(campos.get("votos", 0))
-                        alertas += 1
+                        musicas += 1
                         if args.ate_encontrar:
                             dt = time.time() - t0
                             print(f"\r\033[K")
@@ -161,13 +163,16 @@ def escuta(args, porta):
                     cor = "31" if atual > thr else "32"
 
                     if MUSICA:
-                        # Em modo musica o "score" e a contagem de votos do
-                        # melhor bin, e o threshold e VOTOS_MIN.
-                        #
+                        # Os dois detectores rodam juntos: o sparkline segue o
+                        # score de anomalia e os votos da musica aparecem ao
+                        # lado, cada um com seu proprio limiar.
+                        cv = "36" if votos >= votos_min else "90"
                         print(f"\r\033[K{spark(scores, thr)}  "
-                              f"votos {C(f'{atual:5.0f}', cor)}/{thr:.0f}  "
-                              f"rms {rms:.4f}  cent {cent:5.0f}Hz  "
-                              f"{C(f'{alertas} ident.', '36' if alertas else '90')}  "
+                              f"anom {C(f'{atual:6.2f}', cor)}/{thr:.2f}  "
+                              f"votos {C(f'{votos:4d}', cv)}/{votos_min}  "
+                              f"rms {rms:.4f}  "
+                              f"{C(f'{alertas}a', '33' if alertas else '90')} "
+                              f"{C(f'{musicas}m', '36' if musicas else '90')}  "
                               f"{m:02d}:{sg:02d}", end="", flush=True)
                         continue
 
@@ -192,8 +197,10 @@ def escuta(args, porta):
         sys.exit(f"\nserial: {e}")
 
     dur = time.time() - t0
-    rotulo = "musicas identificadas" if MUSICA else "alertas"
-    print(f"\n\n{alertas} {rotulo} em {dur/60:.1f} min")
+    if MUSICA:
+        print(f"\n\n{alertas} anomalias e {musicas} musicas em {dur/60:.1f} min")
+    else:
+        print(f"\n\n{alertas} alertas em {dur/60:.1f} min")
 
 
 def main():

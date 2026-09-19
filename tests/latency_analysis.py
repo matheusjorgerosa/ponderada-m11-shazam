@@ -52,7 +52,7 @@ def parse(linhas) -> np.ndarray:
         if not l.startswith("D,"):
             continue
         p = l.split(",")
-        if len(p) != 8:
+        if len(p) < 8:
             continue          # log antigo, sem as etapas separadas
         try:
             dados.append([float(p[5]), float(p[6]), float(p[7])])

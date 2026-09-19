@@ -136,24 +136,25 @@ void task_detect(void *arg)
 #if FORCE_DELAY_DETECT_MS > 0
             vTaskDelay(pdMS_TO_TICKS(FORCE_DELAY_DETECT_MS));
 #endif
-#if MODE_MUSIC_ID
-            /* Mesmo pipeline, algoritmo diferente: em vez do erro de
+            /* A deteccao de anomalia roda SEMPRE. Ela era exclusiva do modo
+             * sem musica, mas com dois LEDs fisicos os dois eventos precisam
+             * coexistir — e cabem: o autoencoder custa 0,17 ms e o casamento
+             * 46 us, contra 64 ms de orcamento por frame. */
+            float score   = detector_score(ff.f);
+            bool anomalia = detector_is_anomaly(score);
+
+            /* Mesmo pipeline, segundo algoritmo: em vez do erro de
              * reconstrucao, casamento de fingerprint por votacao. As tasks,
              * filas, semaforo e mutex sao exatamente os mesmos. */
             int votos = 0;
+#if MODE_MUSIC_ID
             int musica = song_match_frame(ff.picos, ff.n_picos, &votos);
-            float score   = (float)votos;
-            bool anomalia = (musica >= 0);
-            ff.t_detect   = esp_timer_get_time();
-            if (anomalia) {
+            if (musica >= 0) {
                 alert_musica();
                 printf("MATCH musica=%d votos=%d\n", musica + 1, votos);
             }
-#else
-            float score   = detector_score(ff.f);
-            bool anomalia = detector_is_anomaly(score);
-            ff.t_detect   = esp_timer_get_time();
 #endif
+            ff.t_detect = esp_timer_get_time();
 
 #if MODE_DATASET
             printf("%.6f,%.2f", ff.f[0], ff.f[1]);
@@ -176,21 +177,23 @@ void task_detect(void *arg)
             }
 
             if (anomalia) {
-#if !MODE_MUSIC_ID
                 alert_trigger();
-#endif
                 stats_add(0, 1);
             }
 #if !MODE_DATASET
+            /* Campos fixos primeiro, para o latency_analysis.py nao se
+             * importar com os extras do modo musica. */
+            printf("D,%" PRIu32 ",%.6f,%.6f,%d,%" PRId64 ",%" PRId64 ",%" PRId64
 #if MODE_MUSIC_ID
-            printf("D,%" PRIu32 ",%.6f,%.6f,%d,%" PRId64 ",%" PRId64 ",%" PRId64 "\n",
-                   ff.seq, score, (float)VOTOS_MIN, anomalia ? 1 : 0,
-                   lat_cf, lat_fd, lat);
-#else
-            printf("D,%" PRIu32 ",%.6f,%.6f,%d,%" PRId64 ",%" PRId64 ",%" PRId64 "\n",
-                   ff.seq, score, model_threshold, anomalia ? 1 : 0,
-                   lat_cf, lat_fd, lat);
+                   ",%d,%d"
 #endif
+                   "\n",
+                   ff.seq, score, model_threshold, anomalia ? 1 : 0,
+                   lat_cf, lat_fd, lat
+#if MODE_MUSIC_ID
+                   , votos, VOTOS_MIN
+#endif
+                   );
 #endif
         }
 
