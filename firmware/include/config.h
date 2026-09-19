@@ -40,11 +40,11 @@
 #define DT_MIN             1
 #define DT_MAX             31
 #define MAX_MUSICAS        10
-#define VOTOS_MIN          20
+#define VOTOS_MIN          30
+#define MARGEM_VOTOS_X10   15
 #define JANELA_FRAMES      62
 #define TRECHO_FRAMES      468
-#define N_OFFSETS          531
-#define OFFSET_ZERO        62   /* deslocamento para indice nao-negativo */
+#define N_OFFSETS          468   /* = TRECHO_FRAMES, offset circular */
 
 /* ---- RTOS ---- */
 #define AUDIO_POOL_SIZE    4

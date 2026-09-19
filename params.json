@@ -67,9 +67,11 @@
     "max_por_hash_musica": 32,
     "trecho_s": 30,
     "max_musicas": 10,
-    "_comment_votacao": "Histograma zerado a cada janela_s; o maximo e rastreado a cada voto e o match dispara assim que cruza votos_min, sem esperar a janela fechar.",
+    "_comment_votacao": "Histograma zerado a cada janela_s; o maximo e rastreado a cada voto. Decidir cedo demais erra: com votos_min 20 o device fechava no primeiro bin a cruzar o limiar e errava 2 de 10, porque no inicio da consulta uma musica errada lidera por acaso. Com 30 votos e margem 1,5x sobre o segundo colocado, bate 10/10 e concorda com o Python. Margem 2,5x e pior (5/10): exigente demais, a musica certa nunca limpa a margem dentro da janela.",
     "janela_s": 4,
-    "votos_min": 20
+    "votos_min": 30,
+    "_comment_margem": "O vencedor tem que bater o segundo colocado (entre as OUTRAS musicas) por esta razao, em decimos. Sem isso o device dispara no primeiro bin que cruza votos_min, e no inicio da consulta uma musica errada pode liderar por acaso — foi assim que 2 de 10 sairam erradas no teste. Enquanto a margem nao e atingida, o histograma continua acumulando e a decisao espera.",
+    "margem_votos_x10": 15
   },
   "model": {
     "_comment": "Autoencoder 15->8->4->8->15. Treina so com som normal; o score e o erro de reconstrucao. O threshold sai do percentil sobre um conjunto normal SEPARADO do treino — calcular no proprio treino daria um numero otimista. O percentil 92 so funciona junto com debounce 3: exigir mais frames consecutivos endurece contra pico isolado, o que permite baixar o threshold e ganhar sensibilidade sem pagar em falso alarme. Com debounce 2, o mesmo percentil daria 7,5% de falso positivo por evento.",

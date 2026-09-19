@@ -16,8 +16,12 @@ n_fft_bins = P["frame_size"] // 2 + 1
 fps = P["sample_rate"] / P["frame_size"]
 janela_frames = int(P["music_id"]["janela_s"] * fps)
 trecho_frames = int(P["music_id"]["trecho_s"] * fps)
-# offset = t_banco - t_query, com t_banco em [0, trecho] e t_query em [0, janela]
-n_offsets = trecho_frames + janela_frames + 1
+# Offset CIRCULAR, modulo o comprimento do trecho. Com offset linear seria
+# preciso zerar o relogio da query a cada janela, e todo par cujo ancora
+# caisse antes da fronteira se perderia — ate 25% deles. Como t_banco vive em
+# [0, trecho), (t_banco - t_query) mod trecho e constante para um casamento
+# verdadeiro e uniforme para colisao, sem fronteira nenhuma.
+n_offsets = trecho_frames
 frame_ms = 1000.0 * P["frame_size"] / P["sample_rate"]
 
 config_h = f"""/* GERADO POR tools/gen_config.py A PARTIR DE params.json — NAO EDITE A MAO. */
@@ -63,10 +67,10 @@ config_h = f"""/* GERADO POR tools/gen_config.py A PARTIR DE params.json — NAO
 #define DT_MAX             {mid["dt_max"]}
 #define MAX_MUSICAS        {mid["max_musicas"]}
 #define VOTOS_MIN          {mid["votos_min"]}
+#define MARGEM_VOTOS_X10   {mid["margem_votos_x10"]}
 #define JANELA_FRAMES      {janela_frames}
 #define TRECHO_FRAMES      {trecho_frames}
-#define N_OFFSETS          {n_offsets}
-#define OFFSET_ZERO        {janela_frames}   /* deslocamento para indice nao-negativo */
+#define N_OFFSETS          {n_offsets}   /* = TRECHO_FRAMES, offset circular */
 
 /* ---- RTOS ---- */
 #define AUDIO_POOL_SIZE    {rtos["pool_size"]}
@@ -128,6 +132,16 @@ obsoleto = ROOT / "firmware" / "sdkconfig.esp32dev"
 if obsoleto.exists():
     obsoleto.unlink()
     print("removido: firmware/sdkconfig.esp32dev (obsoleto)")
+
+# O song_match.c referencia o banco sempre. Sem a Fase 2 gerada, um stub
+# vazio mantem a Fase 1 compilando — build_db.py sobrescreve quando rodar.
+db_c = ROOT / "firmware" / "src" / "song_db.c"
+if not db_c.exists():
+    db_c.write_text("/* STUB — rode music_id/build_db.py para gerar o banco. */\n"
+                    "#include <stdint.h>\n\n"
+                    "const uint32_t song_db_n = 0;\n"
+                    "const uint64_t song_db[1] = {0};\n")
+    print("gerado: firmware/src/song_db.c (stub vazio)")
 
 print("gerado: firmware/include/config.h")
 print("gerado: firmware/sdkconfig.defaults")

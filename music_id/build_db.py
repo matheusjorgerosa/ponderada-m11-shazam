@@ -32,10 +32,13 @@ MAX_MUSICAS = MID["max_musicas"]
 CAP = MID["max_por_hash_musica"]
 JANELA_FRAMES = int(MID["janela_s"] * dsp.SR / dsp.HOP)
 TRECHO_FRAMES = int(MID["trecho_s"] * dsp.SR / dsp.HOP)
-N_OFFSETS = TRECHO_FRAMES + JANELA_FRAMES + 1
+# Offset circular: (t_banco - t_query) mod TRECHO_FRAMES. Constante para um
+# casamento verdadeiro, uniforme para colisao, e sem fronteira de janela.
+N_OFFSETS = TRECHO_FRAMES
 VOTOS_MIN = MID["votos_min"]
+MARGEM_X10 = MID["margem_votos_x10"]
 
-DB_BIN = ROOT / "firmware/song_db.bin"
+DB_C = ROOT / "firmware/src/song_db.c"
 LISTA = ROOT / "music_id/songs.json"
 
 # factory de 2 MB (firmware/partitions.csv) menos o que o app ja ocupa.
@@ -102,9 +105,26 @@ def grava(arr: np.ndarray, nomes: list[str]) -> None:
         sys.exit(f"ESTOUROU: {tamanho/1024:.0f} KB > {LIMITE_BYTES/1024:.0f} KB. "
                  f"Reduza music_id.leque ou music_id.n_fases no params.json.")
 
-    DB_BIN.write_bytes(arr.tobytes())
+    # Sai como .c, nao como binario embutido: o EMBED_FILES do ESP-IDF nao e
+    # integrado pelo PlatformIO (ele tenta compilar o .S gerado sem rodar o
+    # passo do CMake que o gera). Um array const em .rodata da no mesmo — vai
+    # pra flash e nao gasta RAM.
+    linhas = [
+        "/* GERADO POR music_id/build_db.py — NAO EDITE A MAO. */",
+        "#include <stdint.h>",
+        "",
+        f"/* {len(arr):,} entradas · {tamanho/1024:.0f} KB · "
+        f"{len(nomes)} musicas */".replace(",", "."),
+        f"const uint32_t song_db_n = {len(arr)};",
+        "const uint64_t song_db[] = {",
+    ]
+    for i in range(0, len(arr), 6):
+        linhas.append("    " + ", ".join(f"0x{int(v):016x}ULL" for v in arr[i:i + 6]) + ",")
+    linhas += ["};", ""]
+    DB_C.write_text("\n".join(linhas))
+
     LISTA.write_text(json.dumps({"musicas": nomes}, indent=2, ensure_ascii=False))
-    print(f"gerado: {DB_BIN.relative_to(ROOT)}")
+    print(f"gerado: {DB_C.relative_to(ROOT)} ({DB_C.stat().st_size/1024/1024:.1f} MB de fonte)")
     print(f"gerado: {LISTA.relative_to(ROOT)}")
 
 
@@ -124,9 +144,7 @@ def casa(arr: np.ndarray, hs: list[tuple[int, int]]) -> tuple[int, int, int]:
         while i < len(arr) and int(chaves[i]) == h:
             payload = int(arr[i]) & 0xFFFF
             sid, t_db = payload >> 12, payload & 0xFFF
-            off = t_db - t_query + JANELA_FRAMES
-            if 0 <= off < N_OFFSETS:
-                hist[sid, off] += 1
+            hist[sid, (t_db - t_query) % N_OFFSETS] += 1
             i += 1
 
     sid, off = np.unravel_index(int(hist.argmax()), hist.shape)
