@@ -40,12 +40,11 @@
 #define DT_MIN             1
 #define DT_MAX             31
 #define MAX_MUSICAS        10
-#define VOTOS_MIN          60
+#define VOTOS_MIN          30
 #define RMS_MIN_MUSICA     0.025f
 #define MARGEM_VOTOS_X10   15
 #define JANELA_FRAMES      93
-#define TRECHO_FRAMES      468
-#define N_OFFSETS          468   /* = TRECHO_FRAMES, offset circular */
+#define N_OFFSETS          4096   /* potencia de 2: o modulo vira mascara */
 
 /* ---- RTOS ---- */
 #define AUDIO_POOL_SIZE    4

@@ -102,14 +102,16 @@ int song_match_frame(const uint8_t *picos, int n_picos, int *votos)
                 uint32_t idx = limite_inferior(h);
 
                 while (idx < n_entradas && (uint32_t)(banco[idx] >> 32) == h) {
-                    uint32_t carga = (uint32_t)(banco[idx] & 0xFFFF);
-                    uint32_t sid   = carga >> 12;
-                    uint32_t t_db  = carga & 0xFFF;
+                    uint32_t carga = (uint32_t)(banco[idx] & 0xFFFFFFFFu);
+                    uint32_t sid   = carga >> 24;
+                    uint32_t t_db  = carga & 0xFFFFFFu;
 
                     if (sid < MAX_MUSICAS) {
                         /* Offset circular: constante enquanto a musica toca,
                          * e sem fronteira de janela. */
-                        uint32_t off = (t_db + N_OFFSETS - (t1 % N_OFFSETS)) % N_OFFSETS;
+                        /* N_OFFSETS e potencia de 2, entao o modulo vira
+                         * mascara — importa porque isto roda por par. */
+                        uint32_t off = (t_db - t1) & (N_OFFSETS - 1);
                         uint16_t v = ++hist[sid][off];
                         if (v > melhor_votos) {
                             melhor_votos = v;

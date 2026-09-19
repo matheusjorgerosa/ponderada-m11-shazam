@@ -31,22 +31,28 @@ MID = P["music_id"]
 MAX_MUSICAS = MID["max_musicas"]
 CAP = MID["max_por_hash_musica"]
 JANELA_FRAMES = int(MID["janela_s"] * dsp.SR / dsp.HOP)
-TRECHO_FRAMES = int(MID["trecho_s"] * dsp.SR / dsp.HOP)
-# Offset circular: (t_banco - t_query) mod TRECHO_FRAMES. Constante para um
+# Offset circular: (t_banco - t_query) mod N_OFFSETS. Constante para um
 # casamento verdadeiro, uniforme para colisao, e sem fronteira de janela.
-N_OFFSETS = TRECHO_FRAMES
+# Potencia de 2 para o C usar mascara em vez de divisao.
+N_OFFSETS = MID["offsets"]
 VOTOS_MIN = MID["votos_min"]
 MARGEM_X10 = MID["margem_votos_x10"]
 
 DB_C = ROOT / "firmware/src/song_db.c"
 LISTA = ROOT / "music_id/songs.json"
 
-# factory de 2 MB (firmware/partitions.csv) menos o que o app ja ocupa.
-LIMITE_BYTES = 2 * 1024 * 1024 - 400 * 1024
+# factory de 3 MB (firmware/partitions.csv) menos o que o app ja ocupa.
+LIMITE_BYTES = 3 * 1024 * 1024 - 400 * 1024
 
 
 def entrada(h: int, song_id: int, t: int) -> int:
-    return (h << 32) | ((song_id & 0xF) << 12) | (t & 0xFFF)
+    """hash nos 32 bits altos; songID (8) e tempo em frames (24) nos baixos.
+
+    O payload usa os 32 bits inteiros, nao 16: com tempo de 12 bits o limite
+    era 4095 frames (262 s) e Radio/Video tem 251 s — perto demais de saturar
+    em silencio. Nao custa nada, a entrada ja e uint64.
+    """
+    return (h << 32) | ((song_id & 0xFF) << 24) | (t & 0xFFFFFF)
 
 
 # Nomes de download do YouTube vem com sujeira: "(youtube)", "(Official
@@ -100,18 +106,19 @@ def monta(pasta: Path) -> tuple[np.ndarray, list[str]]:
     if not arquivos:
         sys.exit(f"nenhum audio em {pasta}")
     if len(arquivos) > MAX_MUSICAS:
-        sys.exit(f"{len(arquivos)} arquivos, mas max_musicas={MAX_MUSICAS} "
-                 f"(songID tem 4 bits)")
+        sys.exit(f"{len(arquivos)} arquivos, mas max_musicas={MAX_MUSICAS}")
 
     tudo, nomes = [], []
     for sid, arq in enumerate(arquivos):
-        y = fpmod.melhor_trecho(fpmod.carrega(arq))
+        y = fpmod.carrega(arq)
+        if fpmod.TRECHO_S > 0:
+            y = fpmod.melhor_trecho(y)
         hs = fpmod.impressao(y, todas_as_fases=True)
         mantidos = poda(hs)
         tudo += [entrada(h, sid, t) for h, t in mantidos]
         nomes.append(titulo(arq.stem))
         print(f"  [{sid}] {nomes[-1]:<20} {len(hs):>6} hashes -> "
-              f"{len(mantidos):>6} apos poda   ({arq.name[:38]})")
+              f"{len(mantidos):>6} apos poda   ({len(y)/dsp.SR:5.0f}s)")
 
     arr = np.array(sorted(tudo), dtype=np.uint64)
     return arr, nomes
@@ -164,8 +171,8 @@ def casa(arr: np.ndarray, hs: list[tuple[int, int]]) -> tuple[int, int, int]:
     for h, t_query in hs:
         i = int(np.searchsorted(chaves, np.uint64(h), side="left"))
         while i < len(arr) and int(chaves[i]) == h:
-            payload = int(arr[i]) & 0xFFFF
-            sid, t_db = payload >> 12, payload & 0xFFF
+            payload = int(arr[i]) & 0xFFFFFFFF
+            sid, t_db = payload >> 24, payload & 0xFFFFFF
             hist[sid, (t_db - t_query) % N_OFFSETS] += 1
             i += 1
 

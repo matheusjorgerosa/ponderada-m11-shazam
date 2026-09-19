@@ -16,12 +16,11 @@ n_fft_bins = P["frame_size"] // 2 + 1
 fps = P["sample_rate"] / P["frame_size"]
 janela_frames = int(P["music_id"]["janela_s"] * fps)
 trecho_frames = int(P["music_id"]["trecho_s"] * fps)
-# Offset CIRCULAR, modulo o comprimento do trecho. Com offset linear seria
-# preciso zerar o relogio da query a cada janela, e todo par cujo ancora
-# caisse antes da fronteira se perderia — ate 25% deles. Como t_banco vive em
-# [0, trecho), (t_banco - t_query) mod trecho e constante para um casamento
+# Offset CIRCULAR. Com offset linear seria preciso zerar o relogio da query a
+# cada janela, e todo par cuja ancora caisse antes da fronteira se perderia —
+# ate 25% deles. (t_banco - t_query) mod N e constante para um casamento
 # verdadeiro e uniforme para colisao, sem fronteira nenhuma.
-n_offsets = trecho_frames
+n_offsets = P["music_id"]["offsets"]
 frame_ms = 1000.0 * P["frame_size"] / P["sample_rate"]
 
 config_h = f"""/* GERADO POR tools/gen_config.py A PARTIR DE params.json — NAO EDITE A MAO. */
@@ -70,8 +69,7 @@ config_h = f"""/* GERADO POR tools/gen_config.py A PARTIR DE params.json — NAO
 #define RMS_MIN_MUSICA     {float(mid["rms_min"])}f
 #define MARGEM_VOTOS_X10   {mid["margem_votos_x10"]}
 #define JANELA_FRAMES      {janela_frames}
-#define TRECHO_FRAMES      {trecho_frames}
-#define N_OFFSETS          {n_offsets}   /* = TRECHO_FRAMES, offset circular */
+#define N_OFFSETS          {n_offsets}   /* potencia de 2: o modulo vira mascara */
 
 /* ---- RTOS ---- */
 #define AUDIO_POOL_SIZE    {rtos["pool_size"]}

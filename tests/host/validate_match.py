@@ -71,7 +71,9 @@ def main() -> int:
     falhas = acertos = 0
 
     for sid, arq in enumerate(arquivos):
-        y = fp.melhor_trecho(fp.carrega(arq))
+        y = fp.carrega(arq)
+        if fp.TRECHO_S > 0:
+            y = fp.melhor_trecho(y)
         ini = int(rng.integers(0, max(len(y) - n - dsp.N, 1))) + int(rng.integers(0, dsp.HOP))
         tr = y[ini:ini + n]
         pot = np.mean(tr ** 2)

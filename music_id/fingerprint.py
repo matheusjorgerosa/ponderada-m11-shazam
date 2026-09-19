@@ -81,12 +81,15 @@ def carrega(caminho: Path) -> np.ndarray:
     return y.astype(np.float32)
 
 
-def melhor_trecho(y: np.ndarray, segundos: float = TRECHO_S) -> np.ndarray:
+def melhor_trecho(y: np.ndarray, segundos: float = 0) -> np.ndarray:
     """Janela de maior energia, que quase sempre cai no refrao.
 
     Busca em passos de 1 s: precisao de subsegundo nao muda nada aqui e
     deixaria a busca 16x mais lenta.
     """
+    segundos = segundos or TRECHO_S
+    if segundos <= 0:
+        return y                      # 0 = faixa inteira
     n = int(segundos * dsp.SR)
     if len(y) <= n:
         return y
@@ -118,7 +121,9 @@ def main() -> int:
     ap.add_argument("--fases", action="store_true", help="incluir todas as fases")
     args = ap.parse_args()
 
-    y = melhor_trecho(carrega(Path(args.arquivo)))
+    y = carrega(Path(args.arquivo))
+    if TRECHO_S > 0:
+        y = melhor_trecho(y)
     pk = picos_do_sinal(y)
     hs = impressao(y, args.fases)
     frames = len(y) // dsp.HOP
