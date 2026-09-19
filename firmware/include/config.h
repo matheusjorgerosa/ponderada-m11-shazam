@@ -40,9 +40,10 @@
 #define DT_MIN             1
 #define DT_MAX             31
 #define MAX_MUSICAS        10
-#define VOTOS_MIN          30
+#define VOTOS_MIN          60
+#define RMS_MIN_MUSICA     0.025f
 #define MARGEM_VOTOS_X10   15
-#define JANELA_FRAMES      62
+#define JANELA_FRAMES      93
 #define TRECHO_FRAMES      468
 #define N_OFFSETS          468   /* = TRECHO_FRAMES, offset circular */
 
@@ -60,7 +61,7 @@
 /* ---- Modos ---- */
 #define MODE_DATASET       0
 #define MODE_STREAM        1
-#define MODE_MUSIC_ID      0
+#define MODE_MUSIC_ID      1
 
 /* ---- Stream do dashboard ---- */
 #define DB_MIN             -100.0f

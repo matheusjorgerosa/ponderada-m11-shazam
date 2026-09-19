@@ -67,6 +67,7 @@ config_h = f"""/* GERADO POR tools/gen_config.py A PARTIR DE params.json — NAO
 #define DT_MAX             {mid["dt_max"]}
 #define MAX_MUSICAS        {mid["max_musicas"]}
 #define VOTOS_MIN          {mid["votos_min"]}
+#define RMS_MIN_MUSICA     {float(mid["rms_min"])}f
 #define MARGEM_VOTOS_X10   {mid["margem_votos_x10"]}
 #define JANELA_FRAMES      {janela_frames}
 #define TRECHO_FRAMES      {trecho_frames}

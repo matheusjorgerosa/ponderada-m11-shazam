@@ -172,6 +172,43 @@ Num tom puro, 18 dos 20 filtros mel ficam grudados no piso `log(1e-10)`, onde o
 log amplifica ruído de `float32` e MFCC nenhum é reprodutível — nenhum microfone
 entrega isso. Nos sinais com piso de ruído realista, C e Python concordam em ~1e-6.
 
+## Identificação de músicas (Fase 2)
+
+Um modo alternativo: em vez do erro de reconstrução do autoencoder, a Task 3
+faz casamento de fingerprint estilo Shazam contra um banco embarcado. **A
+arquitetura RTOS não muda** — mesmas três tasks, mesmas filas, mesmo semáforo,
+mesmo mutex. Troca-se só o algoritmo dentro das Tasks 2 e 3.
+
+```bash
+# 1. coloque os arquivos de áudio em music_id/songs/
+# 2. gere o banco (recorta 30 s de maior energia de cada faixa)
+.venv/bin/python music_id/build_db.py --testar
+# 3. ligue o modo e grave
+#    params.json -> modes.music_id = 1
+python3 tools/gen_config.py
+cd firmware && ../.venv-pio/bin/pio run -t upload
+# 4. monitore
+.venv/bin/python tools/monitor.py
+```
+
+O monitor lista as faixas no início e anuncia cada identificação:
+
+```
+♪ Radio/Video  System of a Down  ·  08:56:07  ·  41 votos  ·  5 piscadas no LED
+```
+
+O LED pisca o número da música. Sem WiFi: o índice vai pelo serial e o nome
+vem do `music_id/songs.json`, gerado junto com o banco.
+
+### Como funciona
+
+| Etapa | |
+|---|---|
+| Peak picking | pico mais forte de cada uma das 6 super-bandas, sobre **256** bandas log, acima da média do frame + margem — tudo em aritmética inteira |
+| Hash | 21 bits: `f1(8) \| f2(8) \| Δt(5)`, cada âncora pareada com os 3 picos seguintes em até 2 s |
+| Banco | `uint64` ordenado, busca binária, gerado em 2 fases deslocadas |
+| Votação | histograma `[música][offset circular]`, dispara ao cruzar os votos mínimos **e** bater o segundo colocado por 1,5× |
+
 ## Rodar e ver funcionando
 
 ```bash

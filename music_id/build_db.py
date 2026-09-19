@@ -14,7 +14,7 @@ Guardar o hash na metade alta faz a ordenacao por uint64 ja ordenar por hash.
 """
 import argparse
 import json
-import struct
+import re
 import sys
 from pathlib import Path
 
@@ -47,6 +47,26 @@ LIMITE_BYTES = 2 * 1024 * 1024 - 400 * 1024
 
 def entrada(h: int, song_id: int, t: int) -> int:
     return (h << 32) | ((song_id & 0xF) << 12) | (t & 0xFFF)
+
+
+# Nomes de download do YouTube vem com sujeira: "(youtube)", "(Official
+# Audio)", o nome do artista de um lado e o do canal do outro. O titulo limpo
+# vai para o songs.json e e o que o monitor mostra no terminal.
+_RUIDO = re.compile(
+    r"\((?:youtube|official[^)]*|high quality|hd|hq|audio|video|lyrics?|"
+    r"full album|remaster[^)]*)[^)]*\)", re.I)
+_ARTISTA = re.compile(r"system\s*of\s*a\s*down", re.I)
+
+
+def titulo(nome: str) -> str:
+    """Extrai o titulo da musica de um nome de arquivo bagunçado."""
+    t = _RUIDO.sub("", nome)
+    partes = [x.strip(" -_") for x in t.split(" - ")]
+    # Descarta os segmentos que sao o artista ou o canal. O titulo e o
+    # primeiro que sobra: nesses downloads ele vem antes do nome do canal.
+    partes = [x for x in partes if x and not _ARTISTA.search(x)]
+    t = partes[0] if partes else nome
+    return t.replace("_", "/").strip()
 
 
 def poda(hs: list[tuple[int, int]]) -> list[tuple[int, int]]:
@@ -89,9 +109,9 @@ def monta(pasta: Path) -> tuple[np.ndarray, list[str]]:
         hs = fpmod.impressao(y, todas_as_fases=True)
         mantidos = poda(hs)
         tudo += [entrada(h, sid, t) for h, t in mantidos]
-        nomes.append(arq.stem)
-        print(f"  [{sid}] {arq.stem:<26} {len(hs):>6} hashes -> "
-              f"{len(mantidos):>6} apos poda")
+        nomes.append(titulo(arq.stem))
+        print(f"  [{sid}] {nomes[-1]:<20} {len(hs):>6} hashes -> "
+              f"{len(mantidos):>6} apos poda   ({arq.name[:38]})")
 
     arr = np.array(sorted(tudo), dtype=np.uint64)
     return arr, nomes
@@ -123,7 +143,9 @@ def grava(arr: np.ndarray, nomes: list[str]) -> None:
     linhas += ["};", ""]
     DB_C.write_text("\n".join(linhas))
 
-    LISTA.write_text(json.dumps({"musicas": nomes}, indent=2, ensure_ascii=False))
+    LISTA.write_text(json.dumps(
+        {"artista": "System of a Down", "musicas": nomes},
+        indent=2, ensure_ascii=False))
     print(f"gerado: {DB_C.relative_to(ROOT)} ({DB_C.stat().st_size/1024/1024:.1f} MB de fonte)")
     print(f"gerado: {LISTA.relative_to(ROOT)}")
 

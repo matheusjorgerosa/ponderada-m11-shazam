@@ -8,5 +8,8 @@ firmware/managed_components/
 .venv/
 tests/data/
 docs/latencia.png
-music_id/songs.json
 firmware/src/song_db.c
+
+# Os audios sao do usuario e tem direitos autorais — so o songs.json,
+# com os titulos, entra no repo.
+music_id/songs/

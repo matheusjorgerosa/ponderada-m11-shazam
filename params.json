@@ -43,7 +43,7 @@
     "dataset": 0,
     "stream": 1,
     "_comment_music": "music_id=1 troca o algoritmo das Tasks 2 e 3: peak picking no lugar dos MFCCs, casamento de fingerprint no lugar do autoencoder. A arquitetura RTOS nao muda.",
-    "music_id": 0
+    "music_id": 1
   },
   "stream": {
     "_comment": "Faixa de dB mapeada em 0..255 nas 64 bandas log. -100 dBFS e o piso tipico do INMP441 em sala silenciosa.",
@@ -67,9 +67,12 @@
     "max_por_hash_musica": 32,
     "trecho_s": 30,
     "max_musicas": 10,
-    "_comment_votacao": "Histograma zerado a cada janela_s; o maximo e rastreado a cada voto. Decidir cedo demais erra: com votos_min 20 o device fechava no primeiro bin a cruzar o limiar e errava 2 de 10, porque no inicio da consulta uma musica errada lidera por acaso. Com 30 votos e margem 1,5x sobre o segundo colocado, bate 10/10 e concorda com o Python. Margem 2,5x e pior (5/10): exigente demais, a musica certa nunca limpa a margem dentro da janela.",
-    "janela_s": 4,
-    "votos_min": 30,
+    "_comment_votacao": "Janela de 6 s: com musica real, 4 s dava 7/8 a -10 dB SNR (Radio/Video fazia so 18 votos, abaixo do limiar). Musica real tem vocabulario espectral mais rico que a sintetica, entao os hashes se repetem menos e o total de votos cai — precisa de mais tempo. Com 6 s: 8/8 a -10 dB, 36 votos minimos, margem 2,0x. votos_min entre 20 e 30 da 8/8 em todos os SNRs testados; 40 ja perde uma.",
+    "janela_s": 6,
+    "_comment_porta": "Comporta de energia: abaixo deste RMS o frame nem entra no casador. Medido em ambiente real, o ruido de sala sozinho produz mediana de 24 votos e maximo de 69 no melhor bin — a distribuicao se sobrepoe inteira a da musica fraca, entao limiar de votos sozinho nao separa. Consultar fingerprint em silencio nao faz sentido de qualquer forma. Ambiente aqui fica em 0,003-0,028 RMS; musica no celular a 1 m fica bem acima.",
+    "rms_min": 0.025,
+
+    "votos_min": 60,
     "_comment_margem": "O vencedor tem que bater o segundo colocado (entre as OUTRAS musicas) por esta razao, em decimos. Sem isso o device dispara no primeiro bin que cruza votos_min, e no inicio da consulta uma musica errada pode liderar por acaso — foi assim que 2 de 10 sairam erradas no teste. Enquanto a margem nao e atingida, o histograma continua acumulando e a decisao espera.",
     "margem_votos_x10": 15
   },

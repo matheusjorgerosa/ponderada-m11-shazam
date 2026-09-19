@@ -58,7 +58,7 @@ def main() -> int:
     txt = (ROOT / "firmware/src/song_db.c").read_text()
     arr = np.array([int(v, 16) for v in re.findall(r"0x([0-9a-f]{16})ULL", txt)],
                    dtype=np.uint64)
-    nomes = [a.stem for a in arquivos]
+    nomes = [bd.titulo(a.stem) for a in arquivos]
     print(f"banco: {len(arr):,} entradas · {len(arquivos)} musicas\n")
 
     binario = compila()
@@ -66,8 +66,8 @@ def main() -> int:
     dur = bd.MID["janela_s"]
     n = int(dur * dsp.SR)
 
-    print(f"{'musica':<26}{'C':<20}{'python':<20}{'igual':>7}")
-    print("-" * 74)
+    print(f"{'musica':<20}{'C':<20}{'python':<20}{'igual':>7}")
+    print("-" * 67)
     falhas = acertos = 0
 
     for sid, arq in enumerate(arquivos):
@@ -102,7 +102,7 @@ def main() -> int:
         falhas += not igual
         acertos += c_match == sid
         c_nome = nomes[c_match] if c_match >= 0 else "(nenhum)"
-        print(f"{nomes[sid]:<26}{c_nome:<20}{nomes[py_match]:<20}"
+        print(f"{nomes[sid]:<20}{c_nome:<20}{nomes[py_match]:<20}"
               f"{'sim' if igual else 'NAO':>7}")
 
     print(f"\n{acertos}/{len(arquivos)} identificadas corretamente pelo C")

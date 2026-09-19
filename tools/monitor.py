@@ -23,6 +23,21 @@ import serial
 ROOT = Path(__file__).resolve().parents[1]
 P = json.loads((ROOT / "params.json").read_text())
 BAUD = P["serial"]["baud"]
+MUSICA = P["modes"].get("music_id", 0) == 1
+
+# Nomes das musicas, gerados pelo build_db.py. O firmware manda so o indice —
+# mandar a string por frame gastaria banda serial a toa.
+_lista = ROOT / "music_id/songs.json"
+if _lista.exists():
+    _d = json.loads(_lista.read_text())
+    ARTISTA, MUSICAS = _d.get("artista", ""), _d.get("musicas", [])
+else:
+    ARTISTA, MUSICAS = "", []
+
+
+def nome_musica(n: int) -> str:
+    """n vem 1-based do firmware (mesma contagem das piscadas do LED)."""
+    return MUSICAS[n - 1] if 1 <= n <= len(MUSICAS) else f"#{n}"
 
 BLOCOS = "▁▂▃▄▅▆▇█"
 N_SPARK = 56
@@ -67,7 +82,15 @@ def main():
     t0 = time.time()
     ultimo_desenho = 0.0
 
-    print(f"{porta} @ {BAUD} · Ctrl-C para sair\n")
+    if MUSICA:
+        print(f"{porta} @ {BAUD} · modo IDENTIFICACAO DE MUSICA · "
+              f"{len(MUSICAS)} faixas de {ARTISTA}")
+        for i, m in enumerate(MUSICAS, 1):
+            print(f"   {i}. {m}" + (f"   ({i} piscada{'s' if i > 1 else ''} no LED)"
+                                    if i <= 3 else ""))
+        print("\nCtrl-C para sair\n")
+    else:
+        print(f"{porta} @ {BAUD} · modo DETECCAO DE ANOMALIA · Ctrl-C para sair\n")
     try:
         with serial.Serial(porta, BAUD, timeout=1) as s:
             buf = b""
@@ -91,7 +114,9 @@ def main():
                         except ValueError:
                             continue
                         scores.append(sc)
-                        if anom:
+                        if anom and MUSICA:
+                            pass          # a linha MATCH ja reportou
+                        elif anom:
                             alertas += 1
                             print(f"\r\033[K{C('  ANOMALIA', '1;31')}  "
                                   f"{time.strftime('%H:%M:%S')}  "
@@ -99,6 +124,19 @@ def main():
                                   f"= {C(f'{sc/thr:5.1f}x', '31')} o limiar  ·  "
                                   f"rms {rms:.4f}  centroide {cent:5.0f} Hz  ·  "
                                   f"latencia {lat/1000:.2f} ms")
+
+                    elif l.startswith("MATCH "):
+                        # MATCH musica=<n> votos=<v>
+                        campos = dict(x.split("=") for x in p[0].split()[1:]
+                                      if "=" in x)
+                        n = int(campos.get("musica", 0))
+                        v = int(campos.get("votos", 0))
+                        alertas += 1
+                        print(f"\r\033[K{C('  ♪ ' + nome_musica(n), '1;36')}  "
+                              f"{C(ARTISTA, '36')}  ·  "
+                              f"{time.strftime('%H:%M:%S')}  ·  "
+                              f"{v} votos  ·  {n} piscada"
+                              f"{'s' if n > 1 else ''} no LED")
 
                     elif l.startswith("I (") or l.startswith("E (") or l.startswith("W ("):
                         print(f"\r\033[K{C(l, '90')}")
@@ -109,6 +147,16 @@ def main():
                     atual = scores[-1] if scores else 0.0
                     m, sg = divmod(int(agora - t0), 60)
                     cor = "31" if atual > thr else "32"
+
+                    if MUSICA:
+                        # Em modo musica o "score" e a contagem de votos do
+                        # melhor bin, e o threshold e VOTOS_MIN.
+                        print(f"\r\033[K{spark(scores, thr)}  "
+                              f"votos {C(f'{atual:5.0f}', cor)}/{thr:.0f}  "
+                              f"rms {rms:.4f}  cent {cent:5.0f}Hz  "
+                              f"{C(f'{alertas} identificadas', '36' if alertas else '90')}  "
+                              f"{m:02d}:{sg:02d}", end="", flush=True)
+                        continue
 
                     # Se o ambiente inteiro esta acima do limiar, o modelo nao
                     # conhece esta sala. O alerta dispara uma vez e nunca
@@ -131,8 +179,8 @@ def main():
         sys.exit(f"\nserial: {e}")
 
     dur = time.time() - t0
-    print(f"\n\n{alertas} alertas em {dur/60:.1f} min "
-          f"({alertas/max(dur/60,1e-9):.1f} por minuto)")
+    rotulo = "musicas identificadas" if MUSICA else "alertas"
+    print(f"\n\n{alertas} {rotulo} em {dur/60:.1f} min")
 
 
 if __name__ == "__main__":
