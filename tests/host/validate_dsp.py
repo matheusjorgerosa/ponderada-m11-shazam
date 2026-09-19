@@ -127,7 +127,7 @@ def main() -> int:
     for nome, x in sinais():
         c, py = features_c(binario, x), features_py(x)
 
-        # Escala pelo RMS do vetor: o autoencoder do Batch 6 consome o vetor
+        # Escala pelo RMS do vetor: o autoencoder consome o vetor
         # inteiro, entao o que importa e o erro contra a magnitude tipica do
         # vetor, nao contra um coeficiente que por acaso caiu perto de zero.
         rms_vec = max(float(np.sqrt(np.mean(py ** 2))), 1e-6)
@@ -142,7 +142,7 @@ def main() -> int:
               f"{'' if ok else '   <-- FALHOU'}")
 
     print()
-    print("Criterio de sucesso do Batch 3 — o centroide tem que reagir ao timbre:")
+    print("O centroide tem que reagir ao timbre:")
     grave, agudo = centroides["senoide 300 Hz (voz grave)"], centroides["senoide 4 kHz (assobio)"]
     print(f"  voz grave (300 Hz)  -> centroide {grave:8.1f} Hz")
     print(f"  assobio   (4000 Hz) -> centroide {agudo:8.1f} Hz")

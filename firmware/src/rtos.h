@@ -22,7 +22,8 @@ typedef struct {
 
 /* Mensagem da q_features: viaja POR VALOR (~80 bytes). Aqui copiar sai mais
  * barato que manter um segundo pool com mais um semaforo pra gerenciar.
- * Os tres timestamps sao o que o Batch 7 usa pra fatiar a latencia. */
+ * Os tres timestamps sao o que a analise de latencia usa para fatiar as
+ * etapas. */
 typedef struct {
     uint32_t seq;
     float    f[N_FEATURES];   /* [0]=RMS  [1]=centroid  [2..14]=MFCC */

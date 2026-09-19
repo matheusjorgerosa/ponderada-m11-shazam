@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Gera 10 'musicas' sinteticas distintas para exercitar a Fase 2 sem depender
+"""Gera 10 'musicas' sinteticas distintas para exercitar a identificacao de
+musica sem depender
 de arquivos com direitos autorais.
 
     .venv/bin/python music_id/gera_sinteticas.py --saida /tmp/musicas

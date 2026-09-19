@@ -160,7 +160,7 @@ function ajusta(cv) {            // canvas em pixels reais, pra não borrar
   return cv.getContext("2d");
 }
 
-// Máximos locais acima da média móvel da coluna. O Batch 10 calibra o peak
+// Máximos locais acima da média móvel da coluna. Serve para calibrar o peak
 // picking olhando exatamente isto por cima do espectrograma.
 function picosDaColuna(col) {
   const media = col.reduce((a, b) => a + b, 0) / col.length;

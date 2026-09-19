@@ -89,11 +89,11 @@ cd firmware
 ../.venv-pio/bin/pio device monitor   # serial a 921600 baud
 ```
 
-## Estado atual
+## Arquitetura
 
-**Fase 1 completa.** O pipeline de concorrência é o definitivo
-desde o Batch 2: os batches seguintes trocam o *algoritmo* dentro das tasks, não a
-estrutura.
+O pipeline de concorrência é independente do algoritmo: as tasks, filas,
+semáforo e mutex são os mesmos para a detecção de anomalia e para a
+identificação de música.
 
 ```
 task_capture  (prio 6, core 1)   I2S ──▶ pool de 4 buffers
@@ -103,7 +103,7 @@ task_capture  (prio 6, core 1)   I2S ──▶ pool de 4 buffers
 task_features (prio 4, core 1)   pool ──▶ feature_frame_t
      │  q_features   prof. 8, carrega a struct por valor
      ▼
-task_detect   (prio 3, core 0)   threshold ──▶ LED
+task_detect   (prio 3, core 0)   detecção ──▶ LEDs
 ```
 
 `mtx_stats` protege `frames_captured`, `frames_dropped` e `anomalies_detected`.
@@ -118,9 +118,9 @@ task_detect   (prio 3, core 0)   threshold ──▶ LED
 
 Janela de Hann **periódica**, FFT complexa de 1024 pontos via `esp-dsp`, energias
 mel sobre o espectro de **potência** com **log natural**, DCT-II na convenção
-`norm='ortho'`. Essas quatro convenções são as que o `tools/dashboard/dsp.py` do
-Batch 4 tem que copiar — divergir em qualquer uma faz o espectrograma do Python
-não bater com o do C.
+`norm='ortho'`. Essas quatro convenções são as que o `tools/dashboard/dsp.py`
+replica — divergir em qualquer uma faz o espectrograma do Python não bater com
+o do C.
 
 ## Modelo
 
@@ -184,10 +184,10 @@ Num tom puro, 18 dos 20 filtros mel ficam grudados no piso `log(1e-10)`, onde o
 log amplifica ruído de `float32` e MFCC nenhum é reprodutível — nenhum microfone
 entrega isso. Nos sinais com piso de ruído realista, C e Python concordam em ~1e-6.
 
-## Identificação de músicas (Fase 2)
+## Identificação de músicas
 
 Com `modes.music_id = 1` a Task 3 roda **dois detectores no mesmo frame**: o
-autoencoder da Fase 1 e um casamento de fingerprint estilo Shazam contra um
+autoencoder de anomalia e um casamento de fingerprint estilo Shazam contra um
 banco embarcado. Cada um acende seu próprio LED. Cabem juntos com folga — o
 autoencoder custa 0,17 ms e o casamento 46 µs, contra 64 ms de orçamento.
 
@@ -286,7 +286,8 @@ O dashboard tem quatro coisas:
    Toque o arquivo no alto-falante, capture pelo mic, compare os dois: é assim
    que se confirma que o pipeline do C e o do Python concordam.
 4. **Overlay de picos** — máximos locais por cima do espectrograma. Não faz nada
-   na Fase 1; no Batch 10 é a ferramenta de calibrar o peak picking.
+   para a detecção de anomalia, mas é a ferramenta para calibrar o peak
+   picking da identificação de música.
 
 O botão **gravar 10 s → CSV** baixa as últimas features com as mesmas colunas do
 modo dataset — serve pra clipe curto e dirigido. Coleta longa é o `collect.py`.
@@ -294,7 +295,7 @@ modo dataset — serve pra clipe curto e dirigido. Coleta longa é o `collect.py
 ### Modo dataset
 
 `params.json → modes.dataset = 1` faz o serial cuspir CSV puro, uma linha por
-frame, sem nenhum log misturado — é o que o `collect.py` do Batch 5 consome.
+frame, sem nenhum log misturado — é o que o `collect.py` consome.
 
 ```
 rms,centroid,mfcc0,mfcc1,...,mfcc12

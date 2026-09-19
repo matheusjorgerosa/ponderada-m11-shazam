@@ -41,7 +41,7 @@
     "core_detect": 0
   },
   "modes": {
-    "_comment": "dataset=1 faz o serial cuspir so CSV das 15 features, uma linha por frame, sem log nenhum — e o que o collect.py do Batch 5 consome.",
+    "_comment": "dataset=1 faz o serial cuspir so CSV das 15 features, uma linha por frame, sem log nenhum — e o que o collect.py consome.",
     "dataset": 0,
     "stream": 1,
     "_comment_music": "music_id=1 troca o algoritmo das Tasks 2 e 3: peak picking no lugar dos MFCCs, casamento de fingerprint no lugar do autoencoder. A arquitetura RTOS nao muda.",

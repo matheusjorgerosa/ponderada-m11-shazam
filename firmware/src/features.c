@@ -163,7 +163,7 @@ int features_peaks(const uint8_t *fp_bands, uint8_t *picos)
 
 /* Centroide espectral: media das frequencias ponderada pela magnitude.
  * Em silencio o denominador vai a zero, entao devolvemos 0 em vez de NaN —
- * NaN envenenaria a normalizacao do autoencoder no Batch 6. */
+ * NaN envenenaria a normalizacao do autoencoder. */
 static float spectral_centroid(void)
 {
     float num = 0.0f, den = 0.0f;

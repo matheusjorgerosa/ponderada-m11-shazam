@@ -134,8 +134,8 @@ if obsoleto.exists():
     obsoleto.unlink()
     print("removido: firmware/sdkconfig.esp32dev (obsoleto)")
 
-# O song_match.c referencia o banco sempre. Sem a Fase 2 gerada, um stub
-# vazio mantem a Fase 1 compilando — build_db.py sobrescreve quando rodar.
+# O song_match.c referencia o banco sempre. Sem banco gerado, um stub vazio
+# mantem o firmware compilando — build_db.py sobrescreve quando rodar.
 db_c = ROOT / "firmware" / "src" / "song_db.c"
 if not db_c.exists():
     db_c.write_text("/* STUB — rode music_id/build_db.py para gerar o banco. */\n"
