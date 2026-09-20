@@ -1,4 +1,4 @@
-/* Batch 2 — arquitetura RTOS completa, com deteccao ainda fake.
+/* Pipeline completo: captura -> features -> deteccao por autoencoder.
  *
  *   task_capture  (prio 6, core 1)  I2S -> pool de buffers
  *        | q_audio (indice do buffer, prof. 4)   + sem_free_buffers (0..4)
@@ -60,7 +60,7 @@ stats_t stats_snapshot(void)
 
 void app_main(void)
 {
-    ESP_LOGI(TAG, "detector de anomalias acusticas — batch 2");
+    ESP_LOGI(TAG, "detector de anomalias acusticas");
     ESP_LOGI(TAG, "frame=%d amostras (%.1f ms) @ %d Hz", FRAME_SIZE, FRAME_MS, SAMPLE_RATE);
 
     sem_free_buffers = xSemaphoreCreateCounting(AUDIO_POOL_SIZE, AUDIO_POOL_SIZE);
