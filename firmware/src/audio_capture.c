@@ -8,6 +8,7 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "driver/gpio.h"
 #include "driver/i2s_std.h"
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -24,8 +25,53 @@ static i2s_chan_handle_t rx_chan = NULL;
 
 static int32_t raw[FRAME_SIZE];
 
+/* Checa o pino de dados antes de entregar ele ao I2S.
+ *
+ * O INMP441 mudo e o INMP441 desconectado produzem exatamente a mesma coisa —
+ * 1024 amostras zeradas — e nada no log distingue os dois. Aqui o pino e lido
+ * como GPIO comum com pull-up e com pull-down: se ele seguir o pull nos dois
+ * casos, esta em alta impedancia e nao ha ninguem do outro lado. Custa 40 ms
+ * no boot e economiza uma tarde. */
+static void checa_pino_dados(void)
+{
+    gpio_config_t c = {
+        .pin_bit_mask = (1ULL << PIN_I2S_DATA),
+        .mode         = GPIO_MODE_INPUT,
+        .intr_type    = GPIO_INTR_DISABLE,
+    };
+
+    c.pull_up_en = GPIO_PULLUP_ENABLE;
+    c.pull_down_en = GPIO_PULLDOWN_DISABLE;
+    gpio_config(&c);
+    vTaskDelay(pdMS_TO_TICKS(20));
+    int com_pullup = gpio_get_level(PIN_I2S_DATA);
+
+    c.pull_up_en = GPIO_PULLUP_DISABLE;
+    c.pull_down_en = GPIO_PULLDOWN_ENABLE;
+    gpio_config(&c);
+    vTaskDelay(pdMS_TO_TICKS(20));
+    int com_pulldown = gpio_get_level(PIN_I2S_DATA);
+
+    /* Solta os dois pulls: deixar um ligado faz o I2S ler 0xFFFFFFFF em vez
+     * de zero quando o pino esta solto, e confunde o diagnostico seguinte. */
+    c.pull_down_en = GPIO_PULLDOWN_DISABLE;
+    gpio_config(&c);
+
+    if (com_pullup == 1 && com_pulldown == 0) {
+        ESP_LOGE(TAG, "GPIO%d (SD) em alta impedancia: o mic nao esta dirigindo "
+                      "a linha. Confira VDD=3V3, GND e o fio SD.", PIN_I2S_DATA);
+    } else if (com_pullup == 0) {
+        ESP_LOGW(TAG, "GPIO%d (SD) preso em nivel baixo: curto pra massa?",
+                 PIN_I2S_DATA);
+    } else {
+        ESP_LOGI(TAG, "GPIO%d (SD): linha dirigida, mic presente", PIN_I2S_DATA);
+    }
+}
+
 esp_err_t audio_capture_init(void)
 {
+    checa_pino_dados();
+
     i2s_chan_config_t chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);
     chan_cfg.dma_desc_num  = DMA_BUF_COUNT;
     chan_cfg.dma_frame_num = DMA_FRAME_NUM;
