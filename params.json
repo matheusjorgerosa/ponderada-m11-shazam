@@ -22,7 +22,9 @@
     "_comment": "L/R do INMP441 ligado a GND => canal esquerdo. dma_frame_num*4 bytes tem que caber em 4092 por descritor.",
     "channel": "left",
     "dma_buf_count": 4,
-    "dma_frame_num": 512
+    "dma_frame_num": 512,
+    "_comment_settle": "O INMP441 leva alguns segundos assentando o filtro de DC: o RMS sai perto de fundo de escala e decai. Descartar esse trecho evita que ele entre no normal.csv como se fosse ambiente.",
+    "settle_ms": 5000
   },
 
   "serial": {

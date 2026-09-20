@@ -27,6 +27,7 @@
 #define I2S_CHANNEL_LEFT   1
 #define DMA_BUF_COUNT      4
 #define DMA_FRAME_NUM      512
+#define SETTLE_MS          5000
 
 /* ---- Serial ---- */
 #define SERIAL_BAUD        921600

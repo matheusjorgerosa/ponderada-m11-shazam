@@ -8,7 +8,6 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-#include "driver/gpio.h"
 #include "driver/i2s_std.h"
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -25,53 +24,8 @@ static i2s_chan_handle_t rx_chan = NULL;
 
 static int32_t raw[FRAME_SIZE];
 
-/* Checa o pino de dados antes de entregar ele ao I2S.
- *
- * O INMP441 mudo e o INMP441 desconectado produzem exatamente a mesma coisa —
- * 1024 amostras zeradas — e nada no log distingue os dois. Aqui o pino e lido
- * como GPIO comum com pull-up e com pull-down: se ele seguir o pull nos dois
- * casos, esta em alta impedancia e nao ha ninguem do outro lado. Custa 40 ms
- * no boot e economiza uma tarde. */
-static void checa_pino_dados(void)
-{
-    gpio_config_t c = {
-        .pin_bit_mask = (1ULL << PIN_I2S_DATA),
-        .mode         = GPIO_MODE_INPUT,
-        .intr_type    = GPIO_INTR_DISABLE,
-    };
-
-    c.pull_up_en = GPIO_PULLUP_ENABLE;
-    c.pull_down_en = GPIO_PULLDOWN_DISABLE;
-    gpio_config(&c);
-    vTaskDelay(pdMS_TO_TICKS(20));
-    int com_pullup = gpio_get_level(PIN_I2S_DATA);
-
-    c.pull_up_en = GPIO_PULLUP_DISABLE;
-    c.pull_down_en = GPIO_PULLDOWN_ENABLE;
-    gpio_config(&c);
-    vTaskDelay(pdMS_TO_TICKS(20));
-    int com_pulldown = gpio_get_level(PIN_I2S_DATA);
-
-    /* Solta os dois pulls: deixar um ligado faz o I2S ler 0xFFFFFFFF em vez
-     * de zero quando o pino esta solto, e confunde o diagnostico seguinte. */
-    c.pull_down_en = GPIO_PULLDOWN_DISABLE;
-    gpio_config(&c);
-
-    if (com_pullup == 1 && com_pulldown == 0) {
-        ESP_LOGE(TAG, "GPIO%d (SD) em alta impedancia: o mic nao esta dirigindo "
-                      "a linha. Confira VDD=3V3, GND e o fio SD.", PIN_I2S_DATA);
-    } else if (com_pullup == 0) {
-        ESP_LOGW(TAG, "GPIO%d (SD) preso em nivel baixo: curto pra massa?",
-                 PIN_I2S_DATA);
-    } else {
-        ESP_LOGI(TAG, "GPIO%d (SD): linha dirigida, mic presente", PIN_I2S_DATA);
-    }
-}
-
 esp_err_t audio_capture_init(void)
 {
-    checa_pino_dados();
-
     i2s_chan_config_t chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);
     chan_cfg.dma_desc_num  = DMA_BUF_COUNT;
     chan_cfg.dma_frame_num = DMA_FRAME_NUM;
@@ -120,6 +74,34 @@ esp_err_t audio_capture_init(void)
     ESP_LOGI(TAG, "I2S ok: %d Hz, BCK=%d WS=%d DATA=%d, canal %s",
              SAMPLE_RATE, PIN_I2S_BCK, PIN_I2S_WS, PIN_I2S_DATA,
              I2S_CHANNEL_LEFT ? "esquerdo" : "direito");
+
+    /* So da pra saber se o mic esta ligado DEPOIS que o clock roda: sem BCK o
+     * INMP441 deixa o SD em alta impedancia, igualzinho a um fio solto. Com o
+     * clock rodando a diferenca e obvia — mic vivo produz dado que varia, pino
+     * solto devolve sempre o mesmo valor (0 ou 0xFFFFFFFF, conforme o pull). */
+    size_t lidos = 0;
+    for (int t = 0; t < 3; t++) {
+        i2s_channel_read(rx_chan, raw, sizeof(raw), &lidos, portMAX_DELAY);
+    }
+    int constante = 1;
+    for (int i = 1; i < FRAME_SIZE; i++) {
+        if (raw[i] != raw[0]) { constante = 0; break; }
+    }
+    if (constante) {
+        ESP_LOGE(TAG, "todas as amostras iguais (%ld): o mic nao esta dirigindo "
+                      "o SD. Confira VDD=3V3, GND e o fio em GPIO%d.",
+                 (long)raw[0], PIN_I2S_DATA);
+    } else {
+        ESP_LOGI(TAG, "mic presente, dados variando");
+    }
+
+    /* Descarta o transiente de assentamento do mic. */
+    int descartar = (SETTLE_MS * SAMPLE_RATE) / (1000 * FRAME_SIZE);
+    for (int i = 0; i < descartar; i++) {
+        i2s_channel_read(rx_chan, raw, sizeof(raw), &lidos, portMAX_DELAY);
+    }
+    ESP_LOGI(TAG, "assentamento: %d frames descartados (%d ms)", descartar, SETTLE_MS);
+
     return ESP_OK;
 }
 

@@ -44,6 +44,7 @@ config_h = f"""/* GERADO POR tools/gen_config.py A PARTIR DE params.json — NAO
 #define I2S_CHANNEL_LEFT   {1 if i2s["channel"] == "left" else 0}
 #define DMA_BUF_COUNT      {i2s["dma_buf_count"]}
 #define DMA_FRAME_NUM      {i2s["dma_frame_num"]}
+#define SETTLE_MS          {i2s["settle_ms"]}
 
 /* ---- Serial ---- */
 #define SERIAL_BAUD        {ser["baud"]}
