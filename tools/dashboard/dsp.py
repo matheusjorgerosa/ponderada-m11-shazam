@@ -31,6 +31,10 @@ N_MFCC = P["n_mfcc"]
 FMIN = P["fmin"]
 FMAX = P["fmax"]
 N_BANDS = P["n_bands"]
+MID = P["music_id"]
+N_BANDS_FP = MID["n_bands_fp"]
+N_SUPER = MID["n_super"]
+MARGEM_U8 = MID["margem_u8"]
 DB_MIN = P["stream"]["db_min"]
 DB_MAX = P["stream"]["db_max"]
 
@@ -46,9 +50,16 @@ _BAND_SCALE = 2.0 / _WIN.sum()
 # Bordas das 64 bandas log do dashboard, em indice de bin — mesma conta do
 # features_init() em C, inclusive o truncamento pra int.
 _LG = np.log10([FMIN, FMAX])
-_BAND_EDGES = np.clip(
-    (10 ** np.linspace(_LG[0], _LG[1], N_BANDS + 1) * N / SR).astype(int),
-    0, N // 2)
+
+
+def _bordas(n_bandas: int) -> np.ndarray:
+    """Mesma conta do features_init() em C, inclusive o truncamento pra int."""
+    return np.clip((10 ** np.linspace(_LG[0], _LG[1], n_bandas + 1) * N / SR)
+                   .astype(int), 0, N // 2)
+
+
+_BAND_EDGES = _bordas(N_BANDS)
+_FP_EDGES = _bordas(N_BANDS_FP)
 
 
 def magnitude(frame: np.ndarray) -> np.ndarray:
@@ -71,20 +82,51 @@ def features(frame: np.ndarray) -> np.ndarray:
     return np.concatenate([[rms, centroid], mfcc])
 
 
-def bands(mag: np.ndarray) -> np.ndarray:
-    """Comprime o espectro em N_BANDS bandas log, dB escalado em 0..255.
+def _comprime(mag: np.ndarray, bordas: np.ndarray, n_bandas: int) -> np.ndarray:
+    """Comprime o espectro em n_bandas log, dB escalado em 0..255.
 
     MAXIMO da banda, nao media — igual ao C. Nas bandas graves o espaco log e
     mais estreito que um bin, e a media achataria tom puro contra o piso.
     """
-    out = np.empty(N_BANDS, dtype=np.uint8)
-    for b in range(N_BANDS):
-        k0 = _BAND_EDGES[b]
-        k1 = max(_BAND_EDGES[b + 1], k0 + 1)
+    out = np.empty(n_bandas, dtype=np.uint8)
+    for b in range(n_bandas):
+        k0 = bordas[b]
+        k1 = max(bordas[b + 1], k0 + 1)
         pico = mag[k0:min(k1, len(mag))].max(initial=0.0)
         db = 20.0 * np.log10(pico * _BAND_SCALE + 1e-9)
         u = (db - DB_MIN) / (DB_MAX - DB_MIN) * 255.0
         out[b] = int(np.clip(u, 0, 255))
+    return out
+
+
+def bands(mag: np.ndarray) -> np.ndarray:
+    """As 64 bandas do dashboard."""
+    return _comprime(mag, _BAND_EDGES, N_BANDS)
+
+
+def fp_bands(mag: np.ndarray) -> np.ndarray:
+    """As N_BANDS_FP bandas de resolucao fina que o hashing usa."""
+    return _comprime(mag, _FP_EDGES, N_BANDS_FP)
+
+
+def peaks(fp: np.ndarray) -> list[int]:
+    """Pico de cada super-banda que passe da media do frame + margem.
+
+    Espelha features_peaks() do C, em aritmetica INTEIRA: soma, divisao e
+    comparacao inteiras dao resultado identico bit a bit nos dois lados. Por
+    isso o validate_peaks.py testa igualdade exata, sem tolerancia.
+
+    Limiar sem estado de proposito — media movel teria memoria infinita e
+    jamais concordaria entre um arquivo e o stream ao vivo.
+    """
+    limiar = int(fp.astype(np.uint32).sum()) // N_BANDS_FP + MARGEM_U8
+    out = []
+    for g in range(N_SUPER):
+        b0 = g * N_BANDS_FP // N_SUPER
+        b1 = (g + 1) * N_BANDS_FP // N_SUPER
+        melhor = b0 + int(np.argmax(fp[b0:b1]))   # empate fica com o menor
+        if int(fp[melhor]) > limiar:
+            out.append(melhor)
     return out
 
 
