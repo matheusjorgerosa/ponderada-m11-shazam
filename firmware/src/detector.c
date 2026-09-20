@@ -143,7 +143,11 @@ void task_detect(void *arg)
 #endif
             stream_emit(&ff, score);
 
-            int64_t lat = ff.t_detect - ff.t_capture;
+            /* Tres etapas separadas: cada uma inclui a espera na fila que a
+             * precede, que e justamente onde o gargalo aparece. */
+            int64_t lat_cf = ff.t_features - ff.t_capture;
+            int64_t lat_fd = ff.t_detect   - ff.t_features;
+            int64_t lat    = ff.t_detect   - ff.t_capture;
             lat_soma += lat;
             lat_n++;
             if (lat > lat_max) {
@@ -155,8 +159,9 @@ void task_detect(void *arg)
                 stats_add(0, 0, 1);
             }
 #if !MODE_DATASET
-            printf("D,%" PRIu32 ",%.6f,%.6f,%d,%" PRId64 "\n",
-                   ff.seq, score, model_threshold, anomalia ? 1 : 0, lat);
+            printf("D,%" PRIu32 ",%.6f,%.6f,%d,%" PRId64 ",%" PRId64 ",%" PRId64 "\n",
+                   ff.seq, score, model_threshold, anomalia ? 1 : 0,
+                   lat_cf, lat_fd, lat);
 #endif
         }
 
