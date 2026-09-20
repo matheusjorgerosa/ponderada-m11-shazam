@@ -1,6 +1,8 @@
 #ifndef FEATURES_H
 #define FEATURES_H
 
+#include <stdint.h>
+
 #include "esp_err.h"
 
 /* Monta a janela de Hann, a filterbank mel e as tabelas da FFT. */

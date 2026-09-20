@@ -87,11 +87,13 @@ static void imprime_stats(void)
 
     int64_t lat_media = (lat_n > 0) ? (lat_soma / lat_n) : 0;
 
-    printf("STATS captured=%" PRIu32 " dropped=%" PRIu32 " anomalies=%" PRIu32
+    printf("STATS captured=%" PRIu32 " dropped=%" PRIu32
+           " drop_cap=%" PRIu32 " drop_feat=%" PRIu32 " anomalies=%" PRIu32
            " q_audio=%u/%u q_features=%u/%u"
            " lat_media_us=%" PRId64 " lat_max_us=%" PRId64
            " uptime_s=%" PRId64 "\n",
-           s.frames_captured, s.frames_dropped, s.anomalies_detected,
+           s.frames_captured, s.frames_dropped,
+           s.dropped_capture, s.dropped_features, s.anomalies_detected,
            (unsigned)uxQueueMessagesWaiting(q_audio), Q_AUDIO_DEPTH,
            (unsigned)uxQueueMessagesWaiting(q_features), Q_FEATURES_DEPTH,
            lat_media, lat_max,
@@ -156,7 +158,7 @@ void task_detect(void *arg)
 
             if (anomalia) {
                 alert_trigger();
-                stats_add(0, 0, 1);
+                stats_add(0, 1);
             }
 #if !MODE_DATASET
             printf("D,%" PRIu32 ",%.6f,%.6f,%d,%" PRId64 ",%" PRId64 ",%" PRId64 "\n",

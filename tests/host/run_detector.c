@@ -15,7 +15,8 @@ float             audio_pool[AUDIO_POOL_SIZE][FRAME_SIZE];
 SemaphoreHandle_t sem_free_buffers, mtx_stats;
 QueueHandle_t     q_audio, q_features;
 stats_t           stats;
-void stats_add(uint32_t a, uint32_t b, uint32_t c) { (void)a; (void)b; (void)c; }
+void stats_add(uint32_t a, uint32_t b) { (void)a; (void)b; }
+void stats_drop(int a) { (void)a; }
 stats_t stats_snapshot(void) { return stats; }
 void alert_init(void) {}
 void alert_trigger(void) {}

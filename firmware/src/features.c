@@ -240,10 +240,7 @@ void task_features(void *arg)
         xSemaphoreGive(sem_free_buffers);
 
         if (xQueueSend(q_features, &ff, 0) != pdTRUE) {
-            stats_add(0, 1, 0);
-#if !MODE_DATASET
-            printf("DROP features seq=%" PRIu32 " (q_features cheia)\n", ff.seq);
-#endif
+            stats_drop(0);   /* sem printf: vale o mesmo motivo da captura */
         }
     }
 }

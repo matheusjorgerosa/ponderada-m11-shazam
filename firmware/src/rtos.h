@@ -34,7 +34,9 @@ typedef struct {
 
 typedef struct {
     uint32_t frames_captured;
-    uint32_t frames_dropped;
+    uint32_t frames_dropped;        /* total, = capture + features */
+    uint32_t dropped_capture;       /* pool sem buffer livre */
+    uint32_t dropped_features;      /* q_features cheia */
     uint32_t anomalies_detected;
 } stats_t;
 
@@ -50,7 +52,9 @@ extern QueueHandle_t q_features;
 extern SemaphoreHandle_t mtx_stats;
 extern stats_t           stats;
 
-void    stats_add(uint32_t d_captured, uint32_t d_dropped, uint32_t d_anomalies);
+void    stats_add(uint32_t d_captured, uint32_t d_anomalies);
+/* Registra um descarte na etapa indicada; soma tambem no total. */
+void    stats_drop(int na_captura);
 stats_t stats_snapshot(void);
 
 /* Entrypoints das tasks, cada um no seu modulo. */

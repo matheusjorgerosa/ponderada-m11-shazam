@@ -85,8 +85,12 @@ def grafico(d: np.ndarray, destino: Path) -> None:
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 4))
 
-    ax1.boxplot([d[:, i] / 1000 for i in range(3)],
-                labels=["cap→feat", "feat→det", "total"], showfliers=False)
+    rotulos = ["cap→feat", "feat→det", "total"]
+    caixas = [d[:, i] / 1000 for i in range(3)]
+    try:
+        ax1.boxplot(caixas, tick_labels=rotulos, showfliers=False)
+    except TypeError:      # matplotlib < 3.9 chamava isso de `labels`
+        ax1.boxplot(caixas, labels=rotulos, showfliers=False)
     ax1.axhline(FRAME_MS, color="crimson", ls="--", lw=1,
                 label=f"orçamento do frame ({FRAME_MS:.0f} ms)")
     ax1.set_ylabel("latência (ms)")

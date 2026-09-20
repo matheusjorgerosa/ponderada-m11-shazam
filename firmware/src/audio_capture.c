@@ -158,8 +158,12 @@ void task_capture(void *arg)
         }
 
         if (!tem_buffer) {
-            stats_add(0, 1, 0);
-            printf("DROP captura seq=%" PRIu32 " (pool sem buffer livre)\n", seq++);
+            /* Sem printf aqui, de proposito. Esta task nao pode bloquear, e
+             * printf bloqueia quando o FIFO de TX do UART enche — que e
+             * exatamente o que acontece quando ha muitos descartes. O contador
+             * basta; o STATS reporta a cada STATS_PERIOD_S. */
+            stats_drop(1);
+            seq++;
             continue;
         }
 
@@ -172,12 +176,11 @@ void task_capture(void *arg)
         /* O semaforo ja garantiu vaga; se falhar, algo quebrou a invariante. */
         if (xQueueSend(q_audio, &m, 0) != pdTRUE) {
             xSemaphoreGive(sem_free_buffers);
-            stats_add(0, 1, 0);
-            ESP_LOGE(TAG, "q_audio cheia com semaforo livre — invariante quebrada");
+            stats_drop(1);
             continue;
         }
 
         next = (next + 1) % AUDIO_POOL_SIZE;
-        stats_add(1, 0, 0);
+        stats_add(1, 0);
     }
 }

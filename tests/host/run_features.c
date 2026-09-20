@@ -19,7 +19,8 @@ QueueHandle_t     q_features       = NULL;
 SemaphoreHandle_t mtx_stats        = NULL;
 stats_t           stats            = {0};
 
-void stats_add(uint32_t a, uint32_t b, uint32_t c) { (void)a; (void)b; (void)c; }
+void stats_add(uint32_t a, uint32_t b) { (void)a; (void)b; }
+void stats_drop(int a) { (void)a; }
 stats_t stats_snapshot(void) { return stats; }
 
 static float x[FRAME_SIZE];

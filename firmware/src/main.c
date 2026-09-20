@@ -38,12 +38,24 @@ stats_t           stats            = {0};
  * Sem isso, a task de deteccao (prio 3) segurando o lock poderia ser
  * preemptada por qualquer coisa enquanto a captura (prio 6) espera —
  * inversao de prioridade classica. */
-void stats_add(uint32_t d_captured, uint32_t d_dropped, uint32_t d_anomalies)
+void stats_add(uint32_t d_captured, uint32_t d_anomalies)
 {
     if (xSemaphoreTake(mtx_stats, portMAX_DELAY) == pdTRUE) {
         stats.frames_captured    += d_captured;
-        stats.frames_dropped     += d_dropped;
         stats.anomalies_detected += d_anomalies;
+        xSemaphoreGive(mtx_stats);
+    }
+}
+
+void stats_drop(int na_captura)
+{
+    if (xSemaphoreTake(mtx_stats, portMAX_DELAY) == pdTRUE) {
+        stats.frames_dropped++;
+        if (na_captura) {
+            stats.dropped_capture++;
+        } else {
+            stats.dropped_features++;
+        }
         xSemaphoreGive(mtx_stats);
     }
 }
