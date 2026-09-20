@@ -6,3 +6,5 @@ __pycache__/
 *.pyc
 firmware/managed_components/
 .venv/
+tests/data/
+docs/latencia.png

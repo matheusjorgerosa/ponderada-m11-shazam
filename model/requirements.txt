@@ -9,3 +9,4 @@ torch
 onnx
 onnxruntime
 onnxscript
+matplotlib
