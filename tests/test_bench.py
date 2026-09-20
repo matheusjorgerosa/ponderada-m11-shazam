@@ -27,6 +27,7 @@ import random
 import shutil
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import urllib.request
@@ -81,9 +82,43 @@ def catalogo() -> dict[str, list[Path]]:
     return por_categoria
 
 
+# Normalizar por PICO nao resolve: chuva e vento tem pico alto e RMS baixo, e
+# chegam no mic quase no nivel do ambiente. Normalizar por RMS iguala a energia
+# percebida entre os clipes, que e o que o detector enxerga.
+RMS_ALVO = 10 ** (-18 / 20)     # -18 dBFS
+PICO_MAX = 10 ** (-1 / 20)      # teto de -1 dBFS, pra nao ceifar impulsivos
+
+_cache_norm: dict[Path, Path] = {}
+
+
+def normaliza(wav: Path) -> Path:
+    """Copia o clipe com RMS padronizado, num arquivo temporario reaproveitado."""
+    if wav in _cache_norm:
+        return _cache_norm[wav]
+
+    import numpy as np
+    import soundfile as sf
+
+    y, sr = sf.read(wav, dtype="float32", always_2d=False)
+    if y.ndim > 1:
+        y = y.mean(axis=1)
+
+    rms = float(np.sqrt(np.mean(y ** 2)))
+    if rms > 1e-9:
+        y = y * (RMS_ALVO / rms)
+    pico = float(np.abs(y).max())
+    if pico > PICO_MAX:
+        y = y * (PICO_MAX / pico)
+
+    destino = Path(tempfile.gettempdir()) / f"bench_{wav.stem}.wav"
+    sf.write(destino, y, sr)
+    _cache_norm[wav] = destino
+    return destino
+
+
 def toca(wav: Path) -> None:
     """Toca e espera terminar. aplay porque o ESC-50 e WAV 44,1 kHz mono."""
-    subprocess.run(["aplay", "-q", str(wav)], check=False,
+    subprocess.run(["aplay", "-q", str(normaliza(wav))], check=False,
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 

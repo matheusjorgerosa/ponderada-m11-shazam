@@ -10,3 +10,4 @@ onnx
 onnxruntime
 onnxscript
 matplotlib
+soundfile

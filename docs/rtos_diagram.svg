@@ -1,0 +1,140 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 720" width="980" height="720"
+     font-family="'DejaVu Sans', 'Helvetica Neue', Arial, sans-serif">
+  <defs>
+    <marker id="seta" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#374151"/>
+    </marker>
+    <marker id="setaEscura" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#374151"/>
+    </marker>
+    <marker id="setaClara" viewBox="0 0 10 10" refX="9" refY="5"
+            markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#9ca3af"/>
+    </marker>
+  </defs>
+
+  <rect width="980" height="720" fill="#ffffff"/>
+
+  <text x="32" y="42" font-size="20" font-weight="600" fill="#111827">
+    Arquitetura RTOS — detector de anomalias acústicas
+  </text>
+  <text x="32" y="64" font-size="12.5" fill="#6b7280">
+    ESP32 · FreeRTOS · frame de 1024 amostras (64 ms) a 16 kHz · latências medidas em 1875 frames
+  </text>
+
+  <!-- ==================== colunas de core ==================== -->
+  <rect x="32" y="88" width="560" height="560" rx="10" fill="#f9fafb" stroke="#e5e7eb"/>
+  <text x="52" y="112" font-size="12" font-weight="600" fill="#6b7280" letter-spacing="1">CORE 1</text>
+
+  <rect x="616" y="88" width="332" height="560" rx="10" fill="#f9fafb" stroke="#e5e7eb"/>
+  <text x="636" y="112" font-size="12" font-weight="600" fill="#6b7280" letter-spacing="1">CORE 0</text>
+
+  <!-- ==================== sensor ==================== -->
+  <rect x="72" y="132" width="180" height="46" rx="8" fill="#eef2ff" stroke="#c7d2fe"/>
+  <text x="162" y="154" font-size="13.5" font-weight="600" text-anchor="middle" fill="#3730a3">INMP441</text>
+  <text x="162" y="170" font-size="11" text-anchor="middle" fill="#6366f1">I²S · 32 bits · mono</text>
+
+  <path d="M162,178 L162,208" stroke="#374151" stroke-width="1.6" marker-end="url(#setaEscura)"/>
+  <text x="172" y="198" font-size="10.5" fill="#6b7280">DMA · 4 descritores × 512</text>
+
+  <!-- ==================== task_capture ==================== -->
+  <rect x="72" y="210" width="290" height="70" rx="8" fill="#fff" stroke="#374151" stroke-width="1.6"/>
+  <text x="90" y="236" font-size="15" font-weight="600" fill="#111827">task_capture</text>
+  <text x="90" y="256" font-size="11.5" fill="#6b7280">prioridade 6 · core 1 · stack 4 KB</text>
+  <text x="90" y="272" font-size="11.5" fill="#b91c1c" font-weight="600">nunca bloqueia — timeout 0 em tudo</text>
+
+  <circle cx="378" cy="286" r="4.5" fill="#059669"/>
+  <text x="390" y="290" font-size="11.5" font-weight="600" fill="#059669">t_capture</text>
+
+  <!-- pool + semaforo -->
+  <rect x="400" y="196" width="172" height="92" rx="8" fill="#ecfdf5" stroke="#a7f3d0"/>
+  <text x="486" y="217" font-size="12.5" font-weight="600" text-anchor="middle" fill="#065f46">pool de áudio</text>
+  <text x="486" y="234" font-size="11" text-anchor="middle" fill="#047857">4 buffers × 1024 floats</text>
+  <text x="486" y="256" font-size="12" font-weight="600" text-anchor="middle" fill="#065f46">sem_free_buffers</text>
+  <text x="486" y="272" font-size="11" text-anchor="middle" fill="#047857">semáforo contador (0…4)</text>
+  <path d="M362,242 L398,242" stroke="#059669" stroke-width="1.4" stroke-dasharray="4 3"
+        marker-end="url(#setaEscura)"/>
+
+  <!-- ==================== q_audio ==================== -->
+  <path d="M162,280 L162,312" stroke="#374151" stroke-width="1.6" marker-end="url(#setaEscura)"/>
+  <rect x="72" y="314" width="290" height="52" rx="6" fill="#fef3c7" stroke="#fcd34d"/>
+  <text x="90" y="336" font-size="13.5" font-weight="600" fill="#92400e">q_audio</text>
+  <text x="90" y="354" font-size="11" fill="#b45309">profundidade 4 · carrega o índice do buffer (16 B)</text>
+  <text x="348" y="345" font-size="11" text-anchor="end" fill="#92400e" font-weight="600">máx observado 2/4</text>
+
+  <path d="M162,366 L162,398" stroke="#374151" stroke-width="1.6" marker-end="url(#setaEscura)"/>
+
+  <!-- ==================== task_features ==================== -->
+  <rect x="72" y="400" width="290" height="86" rx="8" fill="#fff" stroke="#374151" stroke-width="1.6"/>
+  <text x="90" y="426" font-size="15" font-weight="600" fill="#111827">task_features</text>
+  <text x="90" y="446" font-size="11.5" fill="#6b7280">prioridade 4 · core 1 · stack 4 KB</text>
+  <text x="90" y="464" font-size="11.5" fill="#374151">Hann → FFT 1024 → RMS, centroide, 13 MFCCs</text>
+  <text x="90" y="479" font-size="11.5" fill="#374151">+ 64 bandas log para o dashboard</text>
+
+  <circle cx="378" cy="492" r="4.5" fill="#059669"/>
+  <text x="390" y="496" font-size="11.5" font-weight="600" fill="#059669">t_features</text>
+
+  <text x="400" y="430" font-size="11.5" fill="#6b7280">devolve o buffer ao pool</text>
+  <text x="400" y="446" font-size="11.5" fill="#6b7280">antes de enfileirar</text>
+  <path d="M398,424 L376,424" stroke="#059669" stroke-width="1.4" stroke-dasharray="4 3"
+        marker-end="url(#setaEscura)"/>
+
+  <!-- ==================== q_features ==================== -->
+  <path d="M162,486 L162,518" stroke="#374151" stroke-width="1.6" marker-end="url(#setaEscura)"/>
+  <rect x="72" y="520" width="290" height="52" rx="6" fill="#fef3c7" stroke="#fcd34d"/>
+  <text x="90" y="542" font-size="13.5" font-weight="600" fill="#92400e">q_features</text>
+  <text x="90" y="560" font-size="11" fill="#b45309">profundidade 8 · feature_frame_t por valor (152 B)</text>
+  <text x="348" y="551" font-size="11" text-anchor="end" fill="#92400e" font-weight="600">máx observado 8/8</text>
+
+  <!-- travessia de core -->
+  <path d="M362,546 L640,546 L640,472" stroke="#374151" stroke-width="1.6" fill="none"
+        marker-end="url(#setaEscura)"/>
+  <text x="500" y="538" font-size="10.5" fill="#6b7280" text-anchor="middle">travessia de núcleo</text>
+
+  <!-- ==================== task_detect ==================== -->
+  <rect x="646" y="386" width="278" height="86" rx="8" fill="#fff" stroke="#374151" stroke-width="1.6"/>
+  <text x="664" y="412" font-size="15" font-weight="600" fill="#111827">task_detect</text>
+  <text x="664" y="432" font-size="11.5" fill="#6b7280">prioridade 3 · core 0 · stack 4 KB</text>
+  <text x="664" y="450" font-size="11.5" fill="#374151">autoencoder 15→8→4→8→15 em C</text>
+  <text x="664" y="465" font-size="11.5" fill="#374151">erro &gt; threshold, com debounce de 2 frames</text>
+
+  <circle cx="662" cy="380" r="4.5" fill="#059669"/>
+  <text x="674" y="376" font-size="11.5" font-weight="600" fill="#059669">t_detect</text>
+
+  <path d="M785,472 L785,512" stroke="#374151" stroke-width="1.6" marker-end="url(#setaEscura)"/>
+  <rect x="686" y="514" width="198" height="46" rx="8" fill="#fef2f2" stroke="#fecaca"/>
+  <text x="785" y="536" font-size="13" font-weight="600" text-anchor="middle" fill="#991b1b">LED + buzzer</text>
+  <text x="785" y="552" font-size="11" text-anchor="middle" fill="#dc2626">500 ms, desliga por deadline</text>
+
+  <!-- stream -->
+  <path d="M924,429 L952,429" stroke="#9ca3af" stroke-width="1.4" marker-end="url(#setaClara)"/>
+  <text x="938" y="416" font-size="10.5" fill="#9ca3af" text-anchor="middle">serial</text>
+
+  <!-- ==================== mutex ==================== -->
+  <rect x="646" y="148" width="278" height="120" rx="8" fill="#f5f3ff" stroke="#ddd6fe"/>
+  <text x="785" y="172" font-size="13.5" font-weight="600" text-anchor="middle" fill="#5b21b6">mtx_stats</text>
+  <text x="785" y="190" font-size="11" text-anchor="middle" fill="#7c3aed">mutex com herança de prioridade</text>
+  <line x1="668" y1="202" x2="902" y2="202" stroke="#ddd6fe"/>
+  <text x="668" y="220" font-size="11" fill="#6d28d9">frames_captured</text>
+  <text x="668" y="236" font-size="11" fill="#6d28d9">frames_dropped · drop_cap · drop_feat</text>
+  <text x="668" y="252" font-size="11" fill="#6d28d9">anomalies_detected</text>
+
+  <path d="M362,232 C520,150 560,180 644,196" stroke="#a78bfa" stroke-width="1.2"
+        fill="none" stroke-dasharray="3 3"/>
+  <path d="M362,418 C540,340 560,300 644,258" stroke="#a78bfa" stroke-width="1.2"
+        fill="none" stroke-dasharray="3 3"/>
+  <path d="M700,386 L700,270" stroke="#a78bfa" stroke-width="1.2" stroke-dasharray="3 3"/>
+  <text x="560" y="290" font-size="10.5" fill="#a78bfa">as três tasks escrevem</text>
+
+  <!-- ==================== rodape: latencias ==================== -->
+  <rect x="32" y="664" width="916" height="40" rx="8" fill="#f0fdf4" stroke="#bbf7d0"/>
+  <circle cx="56" cy="684" r="4.5" fill="#059669"/>
+  <text x="70" y="688" font-size="11.5" fill="#065f46">
+    Latências p50 medidas: t_capture→t_features <tspan font-weight="700">3,04 ms</tspan>
+    · t_features→t_detect <tspan font-weight="700">0,17 ms</tspan>
+    · ponta a ponta <tspan font-weight="700">3,21 ms</tspan>
+    = <tspan font-weight="700">5,0%</tspan> do orçamento de 64 ms por frame
+  </text>
+</svg>
