@@ -11,8 +11,13 @@ ROOT = Path(__file__).resolve().parent.parent
 P = json.loads((ROOT / "params.json").read_text())
 
 pins, i2s, ser, det, rtos = P["pins"], P["i2s"], P["serial"], P["detector"], P["rtos"]
-modes, stream = P["modes"], P["stream"]
+modes, stream, mid = P["modes"], P["stream"], P["music_id"]
 n_fft_bins = P["frame_size"] // 2 + 1
+fps = P["sample_rate"] / P["frame_size"]
+janela_frames = int(P["music_id"]["janela_s"] * fps)
+trecho_frames = int(P["music_id"]["trecho_s"] * fps)
+# offset = t_banco - t_query, com t_banco em [0, trecho] e t_query em [0, janela]
+n_offsets = trecho_frames + janela_frames + 1
 frame_ms = 1000.0 * P["frame_size"] / P["sample_rate"]
 
 config_h = f"""/* GERADO POR tools/gen_config.py A PARTIR DE params.json — NAO EDITE A MAO. */
@@ -49,6 +54,20 @@ config_h = f"""/* GERADO POR tools/gen_config.py A PARTIR DE params.json — NAO
 /* ---- Serial ---- */
 #define SERIAL_BAUD        {ser["baud"]}
 
+/* ---- Identificacao de musica ---- */
+#define N_BANDS_FP         {mid["n_bands_fp"]}
+#define N_SUPER            {mid["n_super"]}
+#define MARGEM_U8          {mid["margem_u8"]}
+#define LEQUE              {mid["leque"]}
+#define DT_MIN             {mid["dt_min"]}
+#define DT_MAX             {mid["dt_max"]}
+#define MAX_MUSICAS        {mid["max_musicas"]}
+#define VOTOS_MIN          {mid["votos_min"]}
+#define JANELA_FRAMES      {janela_frames}
+#define TRECHO_FRAMES      {trecho_frames}
+#define N_OFFSETS          {n_offsets}
+#define OFFSET_ZERO        {janela_frames}   /* deslocamento para indice nao-negativo */
+
 /* ---- RTOS ---- */
 #define AUDIO_POOL_SIZE    {rtos["pool_size"]}
 #define Q_AUDIO_DEPTH      {rtos["q_audio_depth"]}
@@ -63,6 +82,7 @@ config_h = f"""/* GERADO POR tools/gen_config.py A PARTIR DE params.json — NAO
 /* ---- Modos ---- */
 #define MODE_DATASET       {modes["dataset"]}
 #define MODE_STREAM        {modes["stream"]}
+#define MODE_MUSIC_ID      {modes["music_id"]}
 
 /* ---- Stream do dashboard ---- */
 #define DB_MIN             {float(stream["db_min"])}f

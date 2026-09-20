@@ -1,0 +1,7 @@
+# A tabela padrao do ESP-IDF da 1 MB de app e desperdica 3 MB dos 4 MB de flash.
+# O banco de fingerprints sozinho passa de 600 KB, entao ampliamos a factory
+# para 2 MB. Nada aqui precisa de OTA nem de sistema de arquivos.
+# Name,     Type, SubType, Offset,  Size
+nvs,        data, nvs,     0x9000,  0x5000
+phy_init,   data, phy,     0xe000,  0x1000
+factory,    app,  factory, 0x10000, 0x200000

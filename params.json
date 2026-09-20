@@ -44,13 +44,40 @@
   "modes": {
     "_comment": "dataset=1 faz o serial cuspir so CSV das 15 features, uma linha por frame, sem log nenhum — e o que o collect.py do Batch 5 consome.",
     "dataset": 0,
-    "stream": 1
+    "stream": 1,
+    "_comment_music": "music_id=1 troca o algoritmo das Tasks 2 e 3: peak picking no lugar dos MFCCs, casamento de fingerprint no lugar do autoencoder. A arquitetura RTOS nao muda.",
+    "music_id": 0
   },
 
   "stream": {
     "_comment": "Faixa de dB mapeada em 0..255 nas 64 bandas log. -100 dBFS e o piso tipico do INMP441 em sala silenciosa.",
     "db_min": -100,
     "db_max": 0
+  },
+
+  "music_id": {
+    "_comment_bandas": "256 bandas log para o hashing, nao as 64 do dashboard. Com 6 bits por frequencia o espaco de hash teria 131k valores para 84k entradas — densidade de 64% e a votacao afoga em colisao. Com 8 bits sao 2,1M valores e 4% de densidade.",
+    "n_bands_fp": 256,
+    "n_super": 6,
+
+    "_comment_limiar": "Limiar SEM estado, dentro do frame: media das 256 bandas + margem. Media movel nao serve — ela teria memoria infinita, e o fingerprint.py comeca no inicio da musica enquanto o device vem rodando desde o boot. Os dois nunca concordariam. Em uint8, 1 unidade = 100/255 = 0,39 dB; 15 unidades ~= 6 dB.",
+    "margem_u8": 15,
+
+    "_comment_hash": "hash 21 bits = f1(8) | f2(8) | dt(5). Cada pico ancora pareia com os picos dos proximos dt frames.",
+    "leque": 3,
+    "dt_min": 1,
+    "dt_max": 31,
+
+    "_comment_fases": "Sem overlap, a query amostra em fase arbitraria em relacao ao banco e perde 25-40% dos picos, de forma sistematica. Gerar o banco em 2 fases deslocadas (0 e 512 amostras) resolve offline, sem tocar no firmware.",
+    "n_fases": 2,
+    "deslocamento_fase": 512,
+
+    "trecho_s": 30,
+    "max_musicas": 10,
+
+    "_comment_votacao": "Histograma zerado a cada janela_s; o maximo e rastreado a cada voto e o match dispara assim que cruza votos_min, sem esperar a janela fechar.",
+    "janela_s": 4,
+    "votos_min": 20
   },
 
   "model": {

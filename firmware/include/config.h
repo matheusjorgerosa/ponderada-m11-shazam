@@ -32,6 +32,20 @@
 /* ---- Serial ---- */
 #define SERIAL_BAUD        921600
 
+/* ---- Identificacao de musica ---- */
+#define N_BANDS_FP         256
+#define N_SUPER            6
+#define MARGEM_U8          15
+#define LEQUE              3
+#define DT_MIN             1
+#define DT_MAX             31
+#define MAX_MUSICAS        10
+#define VOTOS_MIN          20
+#define JANELA_FRAMES      62
+#define TRECHO_FRAMES      468
+#define N_OFFSETS          531
+#define OFFSET_ZERO        62   /* deslocamento para indice nao-negativo */
+
 /* ---- RTOS ---- */
 #define AUDIO_POOL_SIZE    4
 #define Q_AUDIO_DEPTH      4
@@ -46,6 +60,7 @@
 /* ---- Modos ---- */
 #define MODE_DATASET       0
 #define MODE_STREAM        1
+#define MODE_MUSIC_ID      0
 
 /* ---- Stream do dashboard ---- */
 #define DB_MIN             -100.0f
