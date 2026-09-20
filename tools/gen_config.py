@@ -82,6 +82,15 @@ config_h = f"""/* GERADO POR tools/gen_config.py A PARTIR DE params.json — NAO
 """
 
 sdkconfig = f"""# GERADO POR tools/gen_config.py — NAO EDITE A MAO.
+
+# O Kconfig do ESP-IDF declara o baud do console como
+#   prompt "UART console baud rate" if ESP_CONSOLE_UART_CUSTOM
+# ou seja: sem CUSTOM o simbolo nao tem prompt, nao e configuravel, e um valor
+# aqui e ignorado EM SILENCIO — fica em 115200 e o serial sai ilegivel.
+CONFIG_ESP_CONSOLE_UART_CUSTOM=y
+CONFIG_ESP_CONSOLE_UART_NUM=0
+CONFIG_ESP_CONSOLE_UART_TX_GPIO=1
+CONFIG_ESP_CONSOLE_UART_RX_GPIO=3
 CONFIG_ESP_CONSOLE_UART_BAUDRATE={ser["baud"]}
 CONFIG_FREERTOS_HZ=1000
 CONFIG_ESP_MAIN_TASK_STACK_SIZE=4096
@@ -90,5 +99,14 @@ CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
 
 (ROOT / "firmware" / "include" / "config.h").write_text(config_h)
 (ROOT / "firmware" / "sdkconfig.defaults").write_text(sdkconfig)
+
+# O ESP-IDF so le o sdkconfig.defaults quando gera o sdkconfig do zero. Se o
+# antigo sobreviver, mudanca nenhuma daqui pega — e o sintoma e serial ilegivel
+# por baud errado, que nao aponta pra ca.
+obsoleto = ROOT / "firmware" / "sdkconfig.esp32dev"
+if obsoleto.exists():
+    obsoleto.unlink()
+    print("removido: firmware/sdkconfig.esp32dev (obsoleto)")
+
 print("gerado: firmware/include/config.h")
 print("gerado: firmware/sdkconfig.defaults")

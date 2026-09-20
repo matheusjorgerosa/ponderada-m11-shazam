@@ -1,4 +1,13 @@
 # GERADO POR tools/gen_config.py — NAO EDITE A MAO.
+
+# O Kconfig do ESP-IDF declara o baud do console como
+#   prompt "UART console baud rate" if ESP_CONSOLE_UART_CUSTOM
+# ou seja: sem CUSTOM o simbolo nao tem prompt, nao e configuravel, e um valor
+# aqui e ignorado EM SILENCIO — fica em 115200 e o serial sai ilegivel.
+CONFIG_ESP_CONSOLE_UART_CUSTOM=y
+CONFIG_ESP_CONSOLE_UART_NUM=0
+CONFIG_ESP_CONSOLE_UART_TX_GPIO=1
+CONFIG_ESP_CONSOLE_UART_RX_GPIO=3
 CONFIG_ESP_CONSOLE_UART_BAUDRATE=921600
 CONFIG_FREERTOS_HZ=1000
 CONFIG_ESP_MAIN_TASK_STACK_SIZE=4096
