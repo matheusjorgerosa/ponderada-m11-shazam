@@ -1,6 +1,5 @@
 {
   "_comment": "FONTE DA VERDADE dos parametros. Python le direto; o firmware le via include/config.h, gerado por tools/gen_config.py. Nunca duplique um numero daqui em outro lugar.",
-
   "sample_rate": 16000,
   "frame_size": 1024,
   "hop_size": 1024,
@@ -9,7 +8,6 @@
   "fmin": 80,
   "fmax": 7800,
   "n_bands": 64,
-
   "pins": {
     "i2s_bck": 26,
     "i2s_ws": 25,
@@ -17,7 +15,6 @@
     "led": 2,
     "buzzer": 4
   },
-
   "i2s": {
     "_comment": "L/R do INMP441 ligado a GND => canal esquerdo. dma_frame_num*4 bytes tem que caber em 4092 por descritor.",
     "channel": "left",
@@ -26,21 +23,21 @@
     "_comment_settle": "O INMP441 leva alguns segundos assentando o filtro de DC: o RMS sai perto de fundo de escala e decai. Descartar esse trecho evita que ele entre no normal.csv como se fosse ambiente.",
     "settle_ms": 5000
   },
-
   "serial": {
     "baud": 921600
   },
-
   "rtos": {
     "_comment": "Captura tem a maior prioridade porque e a unica etapa com prazo fisico: o DMA do I2S nao espera. Features e detect podem atrasar e so aumentam a latencia.",
     "pool_size": 4,
     "q_audio_depth": 4,
     "q_features_depth": 8,
-    "prio_capture": 6,  "core_capture": 1,
-    "prio_features": 4, "core_features": 1,
-    "prio_detect": 3,   "core_detect": 0
+    "prio_capture": 6,
+    "core_capture": 1,
+    "prio_features": 4,
+    "core_features": 1,
+    "prio_detect": 3,
+    "core_detect": 0
   },
-
   "modes": {
     "_comment": "dataset=1 faz o serial cuspir so CSV das 15 features, uma linha por frame, sem log nenhum — e o que o collect.py do Batch 5 consome.",
     "dataset": 0,
@@ -48,38 +45,32 @@
     "_comment_music": "music_id=1 troca o algoritmo das Tasks 2 e 3: peak picking no lugar dos MFCCs, casamento de fingerprint no lugar do autoencoder. A arquitetura RTOS nao muda.",
     "music_id": 0
   },
-
   "stream": {
     "_comment": "Faixa de dB mapeada em 0..255 nas 64 bandas log. -100 dBFS e o piso tipico do INMP441 em sala silenciosa.",
     "db_min": -100,
     "db_max": 0
   },
-
   "music_id": {
     "_comment_bandas": "256 bandas log para o hashing, nao as 64 do dashboard. Com 6 bits por frequencia o espaco de hash teria 131k valores para 84k entradas — densidade de 64% e a votacao afoga em colisao. Com 8 bits sao 2,1M valores e 4% de densidade.",
     "n_bands_fp": 256,
     "n_super": 6,
-
     "_comment_limiar": "Limiar SEM estado, dentro do frame: media das 256 bandas + margem. Media movel nao serve — ela teria memoria infinita, e o fingerprint.py comeca no inicio da musica enquanto o device vem rodando desde o boot. Os dois nunca concordariam. Em uint8, 1 unidade = 100/255 = 0,39 dB; 15 unidades ~= 6 dB.",
     "margem_u8": 15,
-
     "_comment_hash": "hash 21 bits = f1(8) | f2(8) | dt(5). Cada pico ancora pareia com os picos dos proximos dt frames.",
     "leque": 3,
     "dt_min": 1,
     "dt_max": 31,
-
     "_comment_fases": "Sem overlap, a query amostra em fase arbitraria em relacao ao banco e perde 25-40% dos picos, de forma sistematica. Gerar o banco em 2 fases deslocadas (0 e 512 amostras) resolve offline, sem tocar no firmware.",
     "n_fases": 2,
     "deslocamento_fase": 512,
-
+    "_comment_cap": "Limite de entradas por (hash, musica). A distribuicao de hashes em musica e muito torta — os picos sao argmax de super-banda e caem sempre nos mesmos harmonicos, entao alguns hashes aparecem centenas de vezes. Um unico acerto num desses despeja votos demais e o segundo colocado sobe. Manter so CAP entradas por musica, espalhadas no tempo, corta o ruido e encolhe o banco.",
+    "max_por_hash_musica": 32,
     "trecho_s": 30,
     "max_musicas": 10,
-
     "_comment_votacao": "Histograma zerado a cada janela_s; o maximo e rastreado a cada voto e o match dispara assim que cruza votos_min, sem esperar a janela fechar.",
     "janela_s": 4,
     "votos_min": 20
   },
-
   "model": {
     "_comment": "Autoencoder 15->8->4->8->15. Treina so com som normal; o score e o erro de reconstrucao. O threshold sai do percentil sobre um conjunto normal SEPARADO do treino — calcular no proprio treino daria um numero otimista.",
     "hidden1": 8,
@@ -91,7 +82,6 @@
     "threshold_percentile": 99,
     "seed": 42
   },
-
   "detector": {
     "_comment_debounce": "Exige N frames anomalos seguidos antes de alertar. Corta quase todo falso positivo isolado ao custo de N*64 ms de latencia.",
     "debounce_n": 2,
