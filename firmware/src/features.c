@@ -25,6 +25,7 @@ static float mag[N_FFT_BINS];
 static float mel_edges[N_MEL + 2];           /* posicoes de bin das bordas */
 static float mel_energy[N_MEL];
 static int   band_edges[N_BANDS + 1];        /* bordas em indice de bin */
+static int   fp_edges[N_BANDS_FP + 1];       /* idem, resolucao do fingerprint */
 static float band_escala;                    /* ganho coerente da janela */
 
 static float hz_to_mel(float hz) { return 2595.0f * log10f(1.0f + hz / 700.0f); }
@@ -64,14 +65,20 @@ esp_err_t features_init(void)
     }
     band_escala = 2.0f / soma;
 
-    /* Bordas das bandas do dashboard: log-espacadas entre FMIN e FMAX, nos
-     * mesmos limites da mel, pra que o dsp.py reuse os parametros. */
+    /* Bordas das bandas: log-espacadas entre FMIN e FMAX, nos mesmos limites
+     * da mel, pra que o dsp.py reuse os parametros. Duas tabelas — 64 bandas
+     * para o dashboard, N_BANDS_FP para o fingerprint. */
     float lg_min = log10f(FMIN);
     float lg_max = log10f(FMAX);
     for (int b = 0; b <= N_BANDS; b++) {
         float hz  = powf(10.0f, lg_min + (lg_max - lg_min) * (float)b / (float)N_BANDS);
         int   bin = (int)(hz * (float)FRAME_SIZE / (float)SAMPLE_RATE);
         band_edges[b] = (bin > N_FFT_BINS - 1) ? (N_FFT_BINS - 1) : bin;
+    }
+    for (int b = 0; b <= N_BANDS_FP; b++) {
+        float hz  = powf(10.0f, lg_min + (lg_max - lg_min) * (float)b / (float)N_BANDS_FP);
+        int   bin = (int)(hz * (float)FRAME_SIZE / (float)SAMPLE_RATE);
+        fp_edges[b] = (bin > N_FFT_BINS - 1) ? (N_FFT_BINS - 1) : bin;
     }
 
     ESP_LOGI(TAG, "FFT %d pontos, %d filtros mel (%.0f–%.0f Hz), %d MFCCs",
@@ -93,11 +100,11 @@ const float *features_spectrum(void) { return mag; }
 /* MAXIMO da banda, nao media: nas bandas graves o espaco log e mais estreito
  * que um bin, e a media achataria tom puro contra o piso vizinho. O que se
  * quer ver no espectrograma e justamente a raia fina. */
-void features_bands(uint8_t *out)
+static void comprime(const int *bordas, int n_bandas, uint8_t *out)
 {
-    for (int b = 0; b < N_BANDS; b++) {
-        int k0 = band_edges[b];
-        int k1 = band_edges[b + 1];
+    for (int b = 0; b < n_bandas; b++) {
+        int k0 = bordas[b];
+        int k1 = bordas[b + 1];
         if (k1 <= k0) {
             k1 = k0 + 1;
         }
@@ -116,6 +123,44 @@ void features_bands(uint8_t *out)
         float u  = (db - DB_MIN) / (DB_MAX - DB_MIN) * 255.0f;
         out[b] = (u < 0.0f) ? 0 : (u > 255.0f ? 255 : (uint8_t)u);
     }
+}
+
+void features_bands(uint8_t *out)    { comprime(band_edges, N_BANDS, out); }
+void features_fp_bands(uint8_t *out) { comprime(fp_edges, N_BANDS_FP, out); }
+
+/* Limiar SEM estado: media das bandas do proprio frame mais uma margem.
+ *
+ * A tentacao aqui e usar media movel, mas ela tem memoria infinita — no
+ * fingerprint.py comecaria no inicio da musica e no device viria rodando desde
+ * o boot com som ambiente. Os dois nunca produziriam os mesmos picos, e a
+ * divergencia seria sistematica, nao ruido.
+ *
+ * Tudo inteiro: soma em uint32, divisao inteira, comparacao inteira. O Python
+ * reproduz isso exatamente, sem tolerancia de ponto flutuante. */
+int features_peaks(const uint8_t *fp_bands, uint8_t *picos)
+{
+    uint32_t soma = 0;
+    for (int b = 0; b < N_BANDS_FP; b++) {
+        soma += fp_bands[b];
+    }
+    int limiar = (int)(soma / N_BANDS_FP) + MARGEM_U8;
+
+    int n = 0;
+    for (int g = 0; g < N_SUPER; g++) {
+        int b0 = g * N_BANDS_FP / N_SUPER;
+        int b1 = (g + 1) * N_BANDS_FP / N_SUPER;
+
+        int melhor = b0;
+        for (int b = b0 + 1; b < b1; b++) {
+            if (fp_bands[b] > fp_bands[melhor]) {
+                melhor = b;      /* empate fica com o indice menor */
+            }
+        }
+        if (fp_bands[melhor] > limiar) {
+            picos[n++] = (uint8_t)melhor;
+        }
+    }
+    return n;
 }
 
 /* Centroide espectral: media das frequencias ponderada pela magnitude.

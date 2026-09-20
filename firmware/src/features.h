@@ -24,4 +24,17 @@ const float *features_spectrum(void);
  * fazer isso no stream.c seria corrida com a proxima FFT. */
 void features_bands(uint8_t *out);
 
+/* Idem, mas em N_BANDS_FP bandas — a resolucao fina que o hashing precisa.
+ * As 64 do dashboard dariam so 6 bits por frequencia, e o espaco de hash
+ * ficaria mais denso que o proprio banco. */
+void features_fp_bands(uint8_t *out);
+
+/* Pico mais forte de cada uma das N_SUPER super-bandas, descartando o que nao
+ * passa da media do frame mais MARGEM_U8. Escreve ate N_SUPER indices de banda
+ * em `picos` e devolve quantos sobraram.
+ *
+ * Tudo em aritmetica inteira de proposito: assim o dsp.py produz exatamente os
+ * mesmos picos, bit a bit, e o teste de validacao e igualdade exata. */
+int features_peaks(const uint8_t *fp_bands, uint8_t *picos);
+
 #endif /* FEATURES_H */
