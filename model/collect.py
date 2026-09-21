@@ -63,11 +63,58 @@ def extrai(linha: str) -> list[float] | None:
         return None   # o cabecalho do MODE_DATASET cai aqui, e tudo bem
 
 
+# Roteiro do modo guiado: (segundo de inicio, texto, gravar?).
+# So os trechos com gravar=True entram no CSV — o silencio entre eles e
+# ambiente, e ambiente no anomaly.csv diluiria a taxa de deteccao.
+ROTEIRO = [
+    (0,  "prepare-se — fique a uns 30 cm do microfone", False),
+    (4,  ">>> BATA PALMAS, uma a cada segundo", True),
+    (16, "pausa", False),
+    (19, ">>> ASSOBIE, variando de grave para agudo", True),
+    (31, "pausa", False),
+    (34, ">>> BATA NA MESA com os nos dos dedos", True),
+    (46, "pausa", False),
+    (49, ">>> FALE em voz normal, qualquer coisa", True),
+    (61, "pronto", False),
+]
+
+
+def guiado(ser: serial.Serial, w) -> int:
+    """Avisa na hora de cada som e grava so durante as janelas ativas."""
+    t0 = time.time()
+    n, i = 0, -1
+    gravando = False
+
+    while True:
+        agora = time.time() - t0
+        while i + 1 < len(ROTEIRO) and agora >= ROTEIRO[i + 1][0]:
+            i += 1
+            _, texto, gravando = ROTEIRO[i]
+            print(f"\n[{ROTEIRO[i][0]:>2}s] {texto}", flush=True)
+        if agora >= ROTEIRO[-1][0]:
+            break
+
+        linha = ser.readline().decode("utf-8", "replace").strip()
+        if not linha:
+            continue
+        feats = extrai(linha)
+        if feats is None or not gravando:
+            continue
+        w.writerow([f"{v:.6f}" for v in feats])
+        n += 1
+        print(f"\r  {n} frames", end="", flush=True)
+
+    print()
+    return n
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--minutos", type=float, default=10.0)
     ap.add_argument("--saida", default="model/data/normal.csv")
     ap.add_argument("--port", default=None, help="padrao: autodetecta")
+    ap.add_argument("--guiado", action="store_true",
+                    help="roteiro de sons; grava so durante as janelas ativas")
     args = ap.parse_args()
 
     porta = args.port or acha_porta()
@@ -80,7 +127,12 @@ def main() -> int:
     alvo = int(args.minutos * 60 * FPS)
 
     print(f"{porta} @ {BAUD} -> {saida}")
-    print(f"coletando {args.minutos:g} min ~= {alvo} frames (Ctrl-C para parar antes)")
+    if args.guiado:
+        print(f"modo guiado: {ROTEIRO[-1][0]} s, "
+              f"{sum(b[0]-a[0] for a, b in zip(ROTEIRO, ROTEIRO[1:]) if a[2])} s de som")
+    else:
+        print(f"coletando {args.minutos:g} min ~= {alvo} frames "
+              f"(Ctrl-C para parar antes)")
 
     n, ignoradas, t0 = 0, 0, time.time()
     try:
@@ -88,6 +140,11 @@ def main() -> int:
              saida.open("w", newline="") as fh:
             w = csv.writer(fh)
             w.writerow(COLUNAS)
+
+            if args.guiado:
+                n = guiado(ser, w)
+                print(f"\n{n} frames em {saida}")
+                return 0
 
             while n < alvo:
                 linha = ser.readline().decode("utf-8", "replace").strip()

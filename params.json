@@ -1,6 +1,5 @@
 {
   "_comment": "FONTE DA VERDADE dos parametros. Python le direto; o firmware le via include/config.h, gerado por tools/gen_config.py. Nunca duplique um numero daqui em outro lugar.",
-
   "sample_rate": 16000,
   "frame_size": 1024,
   "hop_size": 1024,
@@ -9,7 +8,6 @@
   "fmin": 80,
   "fmax": 7800,
   "n_bands": 64,
-
   "pins": {
     "i2s_bck": 26,
     "i2s_ws": 25,
@@ -17,7 +15,6 @@
     "led": 2,
     "buzzer": 4
   },
-
   "i2s": {
     "_comment": "L/R do INMP441 ligado a GND => canal esquerdo. dma_frame_num*4 bytes tem que caber em 4092 por descritor.",
     "channel": "left",
@@ -26,45 +23,42 @@
     "_comment_settle": "O INMP441 leva alguns segundos assentando o filtro de DC: o RMS sai perto de fundo de escala e decai. Descartar esse trecho evita que ele entre no normal.csv como se fosse ambiente.",
     "settle_ms": 5000
   },
-
   "serial": {
     "baud": 921600
   },
-
   "rtos": {
     "_comment": "Captura tem a maior prioridade porque e a unica etapa com prazo fisico: o DMA do I2S nao espera. Features e detect podem atrasar e so aumentam a latencia.",
     "pool_size": 4,
     "q_audio_depth": 4,
     "q_features_depth": 8,
-    "prio_capture": 6,  "core_capture": 1,
-    "prio_features": 4, "core_features": 1,
-    "prio_detect": 3,   "core_detect": 0
+    "prio_capture": 6,
+    "core_capture": 1,
+    "prio_features": 4,
+    "core_features": 1,
+    "prio_detect": 3,
+    "core_detect": 0
   },
-
   "modes": {
     "_comment": "dataset=1 faz o serial cuspir so CSV das 15 features, uma linha por frame, sem log nenhum — e o que o collect.py do Batch 5 consome.",
     "dataset": 0,
     "stream": 1
   },
-
   "stream": {
     "_comment": "Faixa de dB mapeada em 0..255 nas 64 bandas log. -100 dBFS e o piso tipico do INMP441 em sala silenciosa.",
     "db_min": -100,
     "db_max": 0
   },
-
   "model": {
-    "_comment": "Autoencoder 15->8->4->8->15. Treina so com som normal; o score e o erro de reconstrucao. O threshold sai do percentil sobre um conjunto normal SEPARADO do treino — calcular no proprio treino daria um numero otimista.",
+    "_comment": "Autoencoder 15->8->4->8->15. Treina so com som normal; o score e o erro de reconstrucao. O threshold sai do percentil sobre um conjunto normal SEPARADO do treino — calcular no proprio treino daria um numero otimista. Percentil 98 e nao 99: medido por janela de 1 s, o 98 da 93,5% de deteccao contra 84,8% do 99, com falso positivo de 0% nos dois. O 99 sacrificava deteccao sem ganhar nada.",
     "hidden1": 8,
     "latent": 4,
     "epochs": 120,
     "batch_size": 64,
     "learning_rate": 0.001,
     "val_split": 0.2,
-    "threshold_percentile": 99,
+    "threshold_percentile": 98,
     "seed": 42
   },
-
   "detector": {
     "_comment_debounce": "Exige N frames anomalos seguidos antes de alertar. Corta quase todo falso positivo isolado ao custo de N*64 ms de latencia.",
     "debounce_n": 2,
