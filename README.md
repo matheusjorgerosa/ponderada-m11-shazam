@@ -79,7 +79,7 @@ cd firmware
 
 ## Estado atual
 
-**Batch 6 — inferência no device.** O pipeline de concorrência é o definitivo
+**Fase 1 completa.** O pipeline de concorrência é o definitivo
 desde o Batch 2: os batches seguintes trocam o *algoritmo* dentro das tasks, não a
 estrutura.
 
@@ -127,12 +127,19 @@ O threshold sai do percentil 99 de um conjunto de validação **separado do
 treino**. Calculá-lo sobre os dados que o treino viu daria um número otimista,
 e você descobriria isso na demonstração.
 
-> ⚠️ Os artefatos versionados hoje vêm de **dados sintéticos**, só para o
-> firmware compilar. O cabeçalho do `model_weights.h` registra a procedência:
-> ```c
-> /* Origem: model/data/normal.csv · 9400 frames · 2026-09-14 10:27 */
-> ```
-> Rode `train.py` com áudio real coletado antes de entregar.
+O modelo versionado foi treinado com **áudio real** — 20,6 min de ambiente em
+dois estados térmicos da máquina e 48 s de anomalias (palmas, assobio, batidas,
+fala), tudo pelo mesmo microfone e na mesma sala. O cabeçalho do
+`model_weights.h` registra a procedência.
+
+Resultado por janela de ~1 s: **acurácia 99,65%**, falso positivo 0,41%,
+detecção 100,00%. Detalhes e ressalvas em [`docs/relatorio.md`](docs/relatorio.md).
+
+Para coletar as anomalias com roteiro na tela:
+
+```bash
+.venv/bin/python model/collect.py --guiado --saida model/data/anomaly.csv
+```
 
 No device, `detector.c` faz as quatro matmuls em C puro sobre pesos em
 `.rodata` — sem TFLite, sem runtime externo, sem quantização. Um alerta exige
