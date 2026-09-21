@@ -43,10 +43,15 @@ def extrai(linha: str) -> list[float] | None:
     p = linha.split(",")
 
     if p[0] == "S":
-        # S,<t_us>,<rms>,<centroid>,<score>,<13 mfccs>,<64 bandas>
-        if len(p) != 5 + N_MFCC + N_BANDS:
+        # S,<t_us>,<rms>,<centroid>,<score>,<threshold>,<13 mfccs>,<64 bandas>
+        #
+        # Os MFCCs sao localizados a partir do FIM da linha, nao por indice
+        # fixo. Ja quebrou uma vez: o campo threshold entrou no stream depois
+        # e o indice fixo passou a rejeitar TODA linha, em silencio, com o CSV
+        # saindo vazio. Contar do fim sobrevive a campos novos no cabecalho.
+        if len(p) < 5 + N_MFCC + N_BANDS:
             return None
-        campos = [p[2], p[3]] + p[5:5 + N_MFCC]
+        campos = [p[2], p[3]] + p[-(N_BANDS + N_MFCC):-N_BANDS]
     elif len(p) == N_FEAT:
         campos = p
     else:
