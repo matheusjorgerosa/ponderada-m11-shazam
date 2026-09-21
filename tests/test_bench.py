@@ -310,47 +310,65 @@ def modo_offline(nivel_alvo: str, seed: int) -> int:
 
     cat = catalogo()
     clipes = [w for c in ANOMALIAS for w in cat.get(c, [])]
+    # GRUPO DE CONTROLE: sons de fundo continuos, que NAO deveriam disparar.
+    # Sem ele este teste nao pode falhar — mede-se "o detector dispara?" e a
+    # resposta e sempre sim, porque o ESC-50 e audio limpo e o treino veio do
+    # microfone real. Se o controle disparar tanto quanto a anomalia, o numero
+    # de deteccao nao significa nada.
+    controle = [w for c in NORMAIS for w in cat.get(c, [])]
     random.Random(seed).shuffle(clipes)
+    random.Random(seed).shuffle(controle)
 
     niveis = {"igual": amb_rms[1], "p90": amb_rms[2],
               "+10dB": amb_rms[2] * 3.16, "+20dB": amb_rms[2] * 10.0}
     if nivel_alvo != "todos":
         niveis = {nivel_alvo: niveis[nivel_alvo]}
 
-    print(f"\n{len(clipes)} clipes de anomalia · threshold {thr:.6f} · "
-          f"debounce {deb}\n")
-    print(f"{'nivel':<10}{'RMS alvo':>11}{'detectados':>13}{'taxa':>9}")
-    print("-" * 44)
+    print(f"\n{len(clipes)} clipes de anomalia · {len(controle)} de controle · "
+          f"threshold {thr:.6f} · debounce {deb}\n")
+    print(f"{'nivel':<10}{'RMS alvo':>11}{'anomalia':>11}{'controle':>11}{'separacao':>12}")
+    print("-" * 56)
 
     import soundfile as sf
     for nome, alvo in niveis.items():
-        vp = 0
-        for w in clipes:
-            y, sr = sf.read(w, dtype="float32", always_2d=False)
-            if y.ndim > 1:
-                y = y.mean(axis=1)
-            y = np.interp(np.linspace(0, len(y) - 1, int(len(y) * dsp.SR / sr)),
-                          np.arange(len(y)), y).astype(np.float32)
-            r = float(np.sqrt(np.mean(y ** 2)))
-            if r > 1e-9:
-                y = y * (alvo / r)
-            # Piso de ruido: sem ele os trechos silenciosos do clipe caem no
-            # piso da mel (-102.97 no mfcc0), que e um valor que microfone
-            # nenhum produz e dispararia o detector por motivo errado.
-            y = y + np.random.default_rng(0).normal(0, amb_rms[0], len(y)).astype(np.float32)
+        taxas = {}
+        for rotulo, conjunto in (("anomalia", clipes), ("controle", controle)):
+            vp = 0
+            for w in conjunto:
+                y, sr = sf.read(w, dtype="float32", always_2d=False)
+                if y.ndim > 1:
+                    y = y.mean(axis=1)
+                y = np.interp(np.linspace(0, len(y) - 1, int(len(y) * dsp.SR / sr)),
+                              np.arange(len(y)), y).astype(np.float32)
+                r = float(np.sqrt(np.mean(y ** 2)))
+                if r > 1e-9:
+                    y = y * (alvo / r)
+                # Piso de ruido: sem ele os trechos silenciosos do clipe caem
+                # no piso da mel (-102.97 no mfcc0), que e um valor que
+                # microfone nenhum produz e dispararia por motivo errado.
+                y = y + np.random.default_rng(0).normal(
+                    0, amb_rms[0], len(y)).astype(np.float32)
 
-            feats = np.array([dsp.features(y[i:i + dsp.N])
-                              for i in range(0, len(y) - dsp.N + 1, dsp.HOP)])
-            if len(feats) and decide(feats):
-                vp += 1
-        taxa = vp / len(clipes)
-        print(f"{nome:<10}{alvo:>11.5f}{vp:>9}/{len(clipes):<4}{taxa:>8.0%}")
+                feats = np.array([dsp.features(y[i:i + dsp.N])
+                                  for i in range(0, len(y) - dsp.N + 1, dsp.HOP)])
+                if len(feats) and decide(feats):
+                    vp += 1
+            taxas[rotulo] = vp / len(conjunto)
 
-    print(f"\nfalso positivo no ambiente: {fp}/{blocos} janelas de 5 s "
-          f"({fp/max(blocos,1):.1%})")
-    print("\nLimitacao: o ESC-50 e audio limpo, o ambiente vem do microfone real.")
-    print("Essa diferenca de dominio favorece a deteccao. O numero honesto de")
-    print("ponta a ponta sai do modo --avaliar, com som pelo alto-falante.")
+        sep = taxas["anomalia"] - taxas["controle"]
+        print(f"{nome:<10}{alvo:>11.5f}{taxas['anomalia']:>10.0%}"
+              f"{taxas['controle']:>11.0%}{sep:>11.0%}")
+
+    print(f"\nfalso positivo no ambiente real (do microfone): "
+          f"{fp}/{blocos} janelas de 5 s ({fp/max(blocos,1):.1%})")
+
+    print("\nCOMO LER: a coluna que importa e 'separacao'. Se o controle")
+    print("disparar tanto quanto a anomalia, o detector esta reagindo a")
+    print("diferenca de dominio (audio limpo do ESC-50 contra audio do")
+    print("INMP441), nao ao conteudo — e a taxa de deteccao nao significa")
+    print("nada. So o modo --avaliar, com som pelo alto-falante, mede")
+    print("acuracia de verdade: ali as duas classes passam pelo mesmo")
+    print("microfone e pela mesma sala.")
     return 0
 
 
