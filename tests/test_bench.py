@@ -253,11 +253,122 @@ def modo_avaliar(leitor: Leitor, cat: dict, n_eventos: int,
     return 0
 
 
+# ------------------------------------------------------- avaliacao offline
+def modo_offline(nivel_alvo: str, seed: int) -> int:
+    """Avalia sem emitir som: passa o ESC-50 pelo dsp.py e pontua com o .onnx.
+
+    Isto e legitimo porque os dois lados ja estao amarrados por teste:
+    features.c concorda com librosa/scipy em ~1e-6 e detector.c concorda com o
+    .onnx em ~1e-7. As features que o Python calcula sao as que o device
+    produziria com aquele audio na entrada.
+
+    O que NAO e medido aqui: a latencia acustica real e a resposta do
+    alto-falante e da sala. Isso exige o modo --avaliar.
+    """
+    import numpy as np
+    import onnxruntime as ort
+    sys.path.insert(0, str(ROOT / "tools/dashboard"))
+    import dsp
+
+    normal = np.genfromtxt(ROOT / "model/data/normal.csv", delimiter=",",
+                           skip_header=1, dtype=np.float32)
+    normal = normal[~np.isnan(normal).any(axis=1)]
+    if len(normal) < 100:
+        sys.exit("model/data/normal.csv insuficiente — colete o ambiente antes")
+
+    # Mesmo split do train.py (mesma seed), pra avaliar so no que o treino
+    # nao viu.
+    M = P["model"]
+    rng = np.random.default_rng(M["seed"])
+    idx = rng.permutation(len(normal))
+    val = normal[idx[int(len(normal) * (1 - M["val_split"])):]]
+
+    amb_rms = np.percentile(normal[:, 0], [10, 50, 90])
+    print(f"ambiente: RMS p10={amb_rms[0]:.5f} p50={amb_rms[1]:.5f} "
+          f"p90={amb_rms[2]:.5f}  ({len(val)} frames de validacao)")
+
+    sess = ort.InferenceSession(str(ROOT / "model/anomaly_detector.onnx"))
+    thr = _threshold()
+    deb = P["detector"]["debounce_n"]
+
+    def decide(feats: np.ndarray) -> bool:
+        """Mesma regra do device: DEBOUNCE_N frames consecutivos acima."""
+        _, sc = sess.run(None, {"features": feats.astype(np.float32)})
+        seguidos = 0
+        for v in sc:
+            seguidos = seguidos + 1 if v > thr else 0
+            if seguidos >= deb:
+                return True
+        return False
+
+    # Falso positivo: o ambiente de validacao, em janelas do tamanho de um clipe.
+    janela = int(5 * dsp.SR / dsp.HOP)
+    fp = blocos = 0
+    for i in range(0, len(val) - janela, janela):
+        blocos += 1
+        fp += decide(val[i:i + janela])
+
+    cat = catalogo()
+    clipes = [w for c in ANOMALIAS for w in cat.get(c, [])]
+    random.Random(seed).shuffle(clipes)
+
+    niveis = {"igual": amb_rms[1], "p90": amb_rms[2],
+              "+10dB": amb_rms[2] * 3.16, "+20dB": amb_rms[2] * 10.0}
+    if nivel_alvo != "todos":
+        niveis = {nivel_alvo: niveis[nivel_alvo]}
+
+    print(f"\n{len(clipes)} clipes de anomalia · threshold {thr:.6f} · "
+          f"debounce {deb}\n")
+    print(f"{'nivel':<10}{'RMS alvo':>11}{'detectados':>13}{'taxa':>9}")
+    print("-" * 44)
+
+    import soundfile as sf
+    for nome, alvo in niveis.items():
+        vp = 0
+        for w in clipes:
+            y, sr = sf.read(w, dtype="float32", always_2d=False)
+            if y.ndim > 1:
+                y = y.mean(axis=1)
+            y = np.interp(np.linspace(0, len(y) - 1, int(len(y) * dsp.SR / sr)),
+                          np.arange(len(y)), y).astype(np.float32)
+            r = float(np.sqrt(np.mean(y ** 2)))
+            if r > 1e-9:
+                y = y * (alvo / r)
+            # Piso de ruido: sem ele os trechos silenciosos do clipe caem no
+            # piso da mel (-102.97 no mfcc0), que e um valor que microfone
+            # nenhum produz e dispararia o detector por motivo errado.
+            y = y + np.random.default_rng(0).normal(0, amb_rms[0], len(y)).astype(np.float32)
+
+            feats = np.array([dsp.features(y[i:i + dsp.N])
+                              for i in range(0, len(y) - dsp.N + 1, dsp.HOP)])
+            if len(feats) and decide(feats):
+                vp += 1
+        taxa = vp / len(clipes)
+        print(f"{nome:<10}{alvo:>11.5f}{vp:>9}/{len(clipes):<4}{taxa:>8.0%}")
+
+    print(f"\nfalso positivo no ambiente: {fp}/{blocos} janelas de 5 s "
+          f"({fp/max(blocos,1):.1%})")
+    print("\nLimitacao: o ESC-50 e audio limpo, o ambiente vem do microfone real.")
+    print("Essa diferenca de dominio favorece a deteccao. O numero honesto de")
+    print("ponta a ponta sai do modo --avaliar, com som pelo alto-falante.")
+    return 0
+
+
+def _threshold() -> float:
+    import re
+    txt = (ROOT / "firmware/include/model_weights.h").read_text()
+    return float(re.search(r"model_threshold\s*=\s*([-+0-9.eE]+)f", txt).group(1))
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--baixar-esc50", action="store_true")
     ap.add_argument("--treino", action="store_true")
     ap.add_argument("--avaliar", action="store_true")
+    ap.add_argument("--offline", action="store_true",
+                    help="avalia sem emitir som, processando o ESC-50 em Python")
+    ap.add_argument("--nivel", default="todos",
+                    choices=["todos", "igual", "p90", "+10dB", "+20dB"])
     ap.add_argument("--minutos", type=float, default=8.0)
     ap.add_argument("--eventos", type=int, default=15)
     ap.add_argument("--janela", type=float, default=1.0,
@@ -270,8 +381,10 @@ def main() -> int:
     if args.baixar_esc50:
         baixar_esc50()
         return 0
+    if args.offline:
+        return modo_offline(args.nivel, args.seed)
     if not (args.treino or args.avaliar):
-        ap.error("escolha --treino ou --avaliar")
+        ap.error("escolha --treino, --avaliar ou --offline")
     if not shutil.which("aplay"):
         sys.exit("aplay nao encontrado (instale alsa-utils)")
 
