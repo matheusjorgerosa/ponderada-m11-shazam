@@ -52,7 +52,7 @@
 #define DB_MAX             0.0f
 
 /* ---- Detector ---- */
-#define DEBOUNCE_N         2
+#define DEBOUNCE_N         3
 #define STATS_PERIOD_S     5
 #define ALERT_MS           500
 #define BUZZER_ENABLED     0

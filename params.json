@@ -49,19 +49,19 @@
     "db_max": 0
   },
   "model": {
-    "_comment": "Autoencoder 15->8->4->8->15. Treina so com som normal; o score e o erro de reconstrucao. O threshold sai do percentil sobre um conjunto normal SEPARADO do treino — calcular no proprio treino daria um numero otimista. Percentil 98 e nao 99: medido por janela de 1 s, o 98 da 93,5% de deteccao contra 84,8% do 99, com falso positivo de 0% nos dois. O 99 sacrificava deteccao sem ganhar nada.",
+    "_comment": "Autoencoder 15->8->4->8->15. Treina so com som normal; o score e o erro de reconstrucao. O threshold sai do percentil sobre um conjunto normal SEPARADO do treino — calcular no proprio treino daria um numero otimista. O percentil 92 so funciona junto com debounce 3: exigir mais frames consecutivos endurece contra pico isolado, o que permite baixar o threshold e ganhar sensibilidade sem pagar em falso alarme. Com debounce 2, o mesmo percentil daria 7,5% de falso positivo por evento.",
     "hidden1": 8,
     "latent": 4,
     "epochs": 120,
     "batch_size": 64,
     "learning_rate": 0.001,
     "val_split": 0.2,
-    "threshold_percentile": 98,
+    "threshold_percentile": 92,
     "seed": 42
   },
   "detector": {
-    "_comment_debounce": "Exige N frames anomalos seguidos antes de alertar. Corta quase todo falso positivo isolado ao custo de N*64 ms de latencia.",
-    "debounce_n": 2,
+    "_comment_debounce": "Exige N frames anomalos seguidos antes de alertar. N=3 custa 192 ms de latencia de alerta e derruba o falso positivo por evento de 7,5% para 0,4% no mesmo threshold — e o parametro mais eficaz do sistema.",
+    "debounce_n": 3,
     "stats_period_s": 5,
     "alert_ms": 500,
     "buzzer_enabled": 0,
