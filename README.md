@@ -172,6 +172,38 @@ Num tom puro, 18 dos 20 filtros mel ficam grudados no piso `log(1e-10)`, onde o
 log amplifica ruído de `float32` e MFCC nenhum é reprodutível — nenhum microfone
 entrega isso. Nos sinais com piso de ruído realista, C e Python concordam em ~1e-6.
 
+## Rodar e ver funcionando
+
+```bash
+.venv/bin/python tools/monitor.py
+```
+
+Monitor ao vivo no terminal: sparkline dos últimos ~3,5 s do score em escala log
+relativa ao threshold (verde abaixo, vermelho acima), valores atuais e contador
+de alertas. Cada anomalia imprime uma linha permanente:
+
+```
+▁▁▂▁▁▂▁▁▁▂▁▁▁▁▂▁▁▁  score  0.312/0.998  rms 0.0031  cent  941Hz  3 alertas  02:14
+  ANOMALIA  23:51:12  score   4.821 =   4.8x o limiar  ·  rms 0.0421  centroide 1180 Hz  ·  latencia 3.21 ms
+```
+
+Se o ambiente ficar permanentemente acima do limiar, ele avisa:
+`MODELO DESATUALIZADO PARA ESTE AMBIENTE — recolete e retreine`. Isso importa
+porque o alerta dispara **uma vez** e só rearma quando o score volta abaixo do
+threshold — um modelo saturado parece parado, não parece quebrado.
+
+### Recalibrar para um ambiente novo
+
+O perfil normal precisa cobrir as condições de operação. Num ambiente diferente
+daquele onde o modelo foi treinado, refaça:
+
+```bash
+.venv/bin/python model/collect.py --minutos 10 --saida model/data/normal.csv
+.venv/bin/python model/collect.py --guiado  --saida model/data/anomaly.csv
+.venv/bin/python model/train.py
+cd firmware && ../.venv-pio/bin/pio run -t upload
+```
+
 ## Dashboard
 
 O ESP32 não tem WiFi por decisão de projeto. Ele emite um frame compacto pelo
